@@ -2,6 +2,7 @@ package node_test
 
 import (
     "testing"
+    "math"
     "math/big"
     "github.com/ld86/godht/node"
 )
@@ -36,5 +37,32 @@ func TestDistance(t *testing.T) {
 
     if big.NewInt(0).Add(ab, bc).Cmp(ac) == -1 {
         t.Error("Triangle property failed")
+    }
+}
+
+func TestGetBucketIndex(t* testing.T) {
+    a := node.NewNode()
+    b := node.NewNode()
+
+    if a.GetBucketIndex(a) != 0 {
+        t.Error("Two same nodes should be placed in one bucket")
+    }
+
+    if a.GetBucketIndex(b) > 160 {
+        t.Error("Bucket index must be less than 160")
+    }
+
+    for j := 0; j < 20; j++ {
+        for i := 1; i < 2; i++ {
+            var manualId [20]byte
+
+            c := node.NewNodeWithId(manualId)
+            manualId[19 - j] = byte(i)
+            d := node.NewNodeWithId(manualId)
+
+            if c.GetBucketIndex(d) != uint(math.Log2(float64(i)) + 1) + uint(j * 8) {
+                t.Error("Bad bucket index")
+            }
+        }
     }
 }

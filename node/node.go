@@ -26,11 +26,18 @@ func (node* Node) GetBucketIndex(secondNode *Node) uint {
     return uint(intDistance.BitLen())
 }
 
+func (node* Node) Id() [20]byte {
+    return node.id
+}
+
+func NewNodeWithId(id [20]byte) *Node {
+   return &Node{id: id}
+}
 func NewNode() *Node {
     var id [20]byte
     _, err := rand.Read(id[:])
     if err != nil {
         log.Panic("rand.Read failed, %s", err)
     }
-    return &Node{id: id}
+    return NewNodeWithId(id)
 }
