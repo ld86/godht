@@ -1,9 +1,8 @@
-package buckets
+package node
 
 import (
 	"errors"
 	"container/list"
-	"github.com/ld86/godht/node"
 )
 
 type Buckets struct {
@@ -20,7 +19,7 @@ func NewBuckets(k int) *Buckets {
 	return &Buckets{k: k, nodes: nodes}
 }
 
-func (buckets *Buckets) AddNode(local *node.Node, remote *node.Node) (*node.Node, int, error) {
+func (buckets *Buckets) AddNode(local *Node, remote *Node) (*Node, int, error) {
 	bucketIndex := local.GetBucketIndex(remote)
 
 	if bucketIndex == 0 {
@@ -42,10 +41,10 @@ func (buckets *Buckets) AddNode(local *node.Node, remote *node.Node) (*node.Node
 		return remote, bucketIndex, nil
 	}
 
-	return buckets.buckets[bucketIndex].Front().Value.(*node.Node), bucketIndex, errors.New("Please ping this node")
+	return buckets.buckets[bucketIndex].Front().Value.(*Node), bucketIndex, errors.New("Please ping this node")
 }
 
-func (buckets* Buckets) RemoveNode(local *node.Node, remote *node.Node) (*node.Node, int, error) {
+func (buckets* Buckets) RemoveNode(local *Node, remote *Node) (*Node, int, error) {
 	bucketIndex := local.GetBucketIndex(remote)
 
 	if bucketIndex == 0 {
@@ -68,4 +67,5 @@ func (buckets* Buckets) RemoveNode(local *node.Node, remote *node.Node) (*node.N
 func (buckets* Buckets) GetBucket(index int) *list.List {
 	return &buckets.buckets[index]
 }
+
 

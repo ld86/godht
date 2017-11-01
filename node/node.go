@@ -6,10 +6,25 @@ import (
     "math/big"
 )
 
+const BucketSize = 10
+
 type Node struct {
     id [20]byte
+	buckets  *Buckets
 }
 
+func NewNodeWithId(id [20]byte) *Node {
+	return &Node{id: id, buckets: NewBuckets(BucketSize)}
+}
+
+func NewNode() *Node {
+    var id [20]byte
+    _, err := rand.Read(id[:])
+    if err != nil {
+        log.Panic("rand.Read failed, %s", err)
+    }
+    return NewNodeWithId(id)
+}
 func (node* Node) Distance(secondNode *Node) [20]byte {
     var distance [20]byte
     for i := 0; i < 20; i++ {
@@ -30,15 +45,4 @@ func (node* Node) Id() [20]byte {
     return node.id
 }
 
-func NewNodeWithId(id [20]byte) *Node {
-   return &Node{id: id}
-}
 
-func NewNode() *Node {
-    var id [20]byte
-    _, err := rand.Read(id[:])
-    if err != nil {
-        log.Panic("rand.Read failed, %s", err)
-    }
-    return NewNodeWithId(id)
-}
