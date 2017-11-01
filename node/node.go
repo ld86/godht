@@ -33,6 +33,7 @@ func (node* Node) Id() [20]byte {
 func NewNodeWithId(id [20]byte) *Node {
    return &Node{id: id}
 }
+
 func NewNode() *Node {
     var id [20]byte
     _, err := rand.Read(id[:])
