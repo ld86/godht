@@ -45,6 +45,27 @@ func (buckets *Buckets) AddNode(local *node.Node, remote *node.Node) (*node.Node
 	return buckets.buckets[bucketIndex].Front().Value.(*node.Node), bucketIndex, errors.New("Please ping this node")
 }
 
+func (buckets* Buckets) RemoveNode(local *node.Node, remote *node.Node) (*node.Node, int, error) {
+	bucketIndex := local.GetBucketIndex(remote)
+
+	if bucketIndex == 0 {
+		return local, -1, errors.New("Cannot remove yourself from buckets")
+	}
+
+	bucketIndex--
+	remoteElement, ok := buckets.nodes[bucketIndex][remote.Id()]
+
+	if !ok {
+		return remote, bucketIndex, nil
+	}
+
+	delete(buckets.nodes[bucketIndex], remote.Id())
+	buckets.buckets[bucketIndex].Remove(remoteElement)
+
+	return remote, bucketIndex, nil
+}
+
 func (buckets* Buckets) GetBucket(index int) *list.List {
 	return &buckets.buckets[index]
 }
+
