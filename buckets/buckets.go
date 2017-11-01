@@ -20,11 +20,11 @@ func NewBuckets(k int) *Buckets {
 	return &Buckets{k: k, nodes: nodes}
 }
 
-func (buckets *Buckets) AddNode(local *node.Node, remote *node.Node) (*node.Node, error) {
+func (buckets *Buckets) AddNode(local *node.Node, remote *node.Node) (*node.Node, int, error) {
 	bucketIndex := local.GetBucketIndex(remote)
 
 	if bucketIndex == 0 {
-		return local, errors.New("Cannot add yourself to buckets")
+		return local, -1, errors.New("Cannot add yourself to buckets")
 	}
 
 	bucketIndex--
@@ -34,15 +34,15 @@ func (buckets *Buckets) AddNode(local *node.Node, remote *node.Node) (*node.Node
 	if !ok && buckets.buckets[bucketIndex].Len() < buckets.k {
 		e := buckets.buckets[bucketIndex].PushBack(remote)
 		buckets.nodes[bucketIndex][remote.Id()] = e
-		return remote, nil
+		return remote, bucketIndex, nil
 	}
 
 	if ok {
 		buckets.buckets[bucketIndex].MoveToBack(remoteElement)
-		return remote, nil
+		return remote, bucketIndex, nil
 	}
 
-	return buckets.buckets[bucketIndex].Front().Value.(*node.Node), errors.New("Please ping this node")
+	return buckets.buckets[bucketIndex].Front().Value.(*node.Node), bucketIndex, errors.New("Please ping this node")
 }
 
 func (buckets* Buckets) GetBucket(index int) *list.List {

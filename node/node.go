@@ -18,12 +18,12 @@ func (node* Node) Distance(secondNode *Node) [20]byte {
     return distance
 }
 
-func (node* Node) GetBucketIndex(secondNode *Node) uint {
+func (node* Node) GetBucketIndex(secondNode *Node) int {
     distance := node.Distance(secondNode)
 
     var intDistance big.Int
     intDistance.SetBytes(distance[:])
-    return uint(intDistance.BitLen())
+    return intDistance.BitLen()
 }
 
 func (node* Node) Id() [20]byte {

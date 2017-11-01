@@ -60,7 +60,7 @@ func TestGetBucketIndex(t* testing.T) {
             manualId[19 - j] = byte(i)
             d := node.NewNodeWithId(manualId)
 
-            if c.GetBucketIndex(d) != uint(math.Log2(float64(i)) + 1) + uint(j * 8) {
+            if c.GetBucketIndex(d) != int(math.Log2(float64(i)) + 1) + j * 8 {
                 t.Error("Bad bucket index")
             }
         }
