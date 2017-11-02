@@ -1,6 +1,7 @@
-package node
+package buckets
 
 import (
+    "math/big"
     "errors"
     "container/list"
 )
@@ -19,8 +20,24 @@ func NewBuckets(k int) *Buckets {
     return &Buckets{k: k, nodes: nodes}
 }
 
-func (buckets *Buckets) AddNode(local *Node, remote *Node) (*Node, int, error) {
-    bucketIndex := local.GetBucketIndex(remote)
+func Distance(node [20]byte, secondNode [20]byte) [20]byte {
+    var distance [20]byte
+    for i := 0; i < 20; i++ {
+        distance[i] = node[i] ^ secondNode[i]
+    }
+    return distance
+}
+
+func GetBucketIndex(node [20]byte, secondNode [20]byte) int {
+    distance := Distance(node, secondNode)
+
+    var intDistance big.Int
+    intDistance.SetBytes(distance[:])
+    return intDistance.BitLen()
+}
+
+func (buckets *Buckets) AddNode(local [20]byte, remote [20]byte) ([20]byte, int, error) {
+    bucketIndex := GetBucketIndex(local, remote)
 
     if bucketIndex == 0 {
         return local, -1, errors.New("Cannot add yourself to buckets")
@@ -28,11 +45,11 @@ func (buckets *Buckets) AddNode(local *Node, remote *Node) (*Node, int, error) {
 
     bucketIndex--
 
-    remoteElement, ok := buckets.nodes[bucketIndex][remote.Id()]
+    remoteElement, ok := buckets.nodes[bucketIndex][remote]
 
     if !ok && buckets.buckets[bucketIndex].Len() < buckets.k {
         e := buckets.buckets[bucketIndex].PushBack(remote)
-        buckets.nodes[bucketIndex][remote.Id()] = e
+        buckets.nodes[bucketIndex][remote] = e
         return remote, bucketIndex, nil
     }
 
@@ -41,24 +58,24 @@ func (buckets *Buckets) AddNode(local *Node, remote *Node) (*Node, int, error) {
         return remote, bucketIndex, nil
     }
 
-    return buckets.buckets[bucketIndex].Front().Value.(*Node), bucketIndex, errors.New("Please ping this node")
+    return buckets.buckets[bucketIndex].Front().Value.([20]byte), bucketIndex, errors.New("Please ping this node")
 }
 
-func (buckets* Buckets) RemoveNode(local *Node, remote *Node) (*Node, int, error) {
-    bucketIndex := local.GetBucketIndex(remote)
+func (buckets* Buckets) RemoveNode(local [20]byte, remote [20]byte) ([20]byte, int, error) {
+    bucketIndex := GetBucketIndex(local, remote)
 
     if bucketIndex == 0 {
         return local, -1, errors.New("Cannot remove yourself from buckets")
     }
 
     bucketIndex--
-    remoteElement, ok := buckets.nodes[bucketIndex][remote.Id()]
+    remoteElement, ok := buckets.nodes[bucketIndex][remote]
 
     if !ok {
         return remote, bucketIndex, nil
     }
 
-    delete(buckets.nodes[bucketIndex], remote.Id())
+    delete(buckets.nodes[bucketIndex], remote)
     buckets.buckets[bucketIndex].Remove(remoteElement)
 
     return remote, bucketIndex, nil
@@ -67,5 +84,3 @@ func (buckets* Buckets) RemoveNode(local *Node, remote *Node) (*Node, int, error
 func (buckets* Buckets) GetBucket(index int) *list.List {
     return &buckets.buckets[index]
 }
-
-
