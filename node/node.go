@@ -15,19 +15,19 @@ type Node struct {
 	messaging *messaging.Messaging
 }
 
-func NewNodeWithId(id [20]byte) *Node {
+func NewNodeWithId(id [20]byte, bootstrap []string) *Node {
 	return &Node{id: id,
 				 buckets: NewBuckets(BucketSize),
-				 messaging: messaging.NewMessaging()}
+				 messaging: messaging.NewMessaging(bootstrap, id)}
 }
 
-func NewNode() *Node {
+func NewNode(bootstrap []string) *Node {
     var id [20]byte
     _, err := rand.Read(id[:])
     if err != nil {
         log.Panic("rand.Read failed, %s", err)
     }
-    return NewNodeWithId(id)
+    return NewNodeWithId(id, bootstrap)
 }
 
 func (node *Node) Distance(secondNode *Node) [20]byte {
