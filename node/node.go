@@ -4,21 +4,21 @@ import (
     "log"
     "crypto/rand"
     "math/big"
-	"github.com/ld86/godht/messaging"
+    "github.com/ld86/godht/messaging"
 )
 
 const BucketSize = 10
 
 type Node struct {
     id [20]byte
-	buckets  *Buckets
-	messaging *messaging.Messaging
+    buckets  *Buckets
+    messaging *messaging.Messaging
 }
 
 func NewNodeWithId(id [20]byte, bootstrap []string) *Node {
-	return &Node{id: id,
-				 buckets: NewBuckets(BucketSize),
-				 messaging: messaging.NewMessaging(bootstrap, id)}
+    return &Node{id: id,
+                 buckets: NewBuckets(BucketSize),
+                 messaging: messaging.NewMessaging(bootstrap, id)}
 }
 
 func NewNode(bootstrap []string) *Node {
@@ -51,15 +51,20 @@ func (node *Node) Id() [20]byte {
 }
 
 func (node *Node) Serve() {
-	go node.messaging.Serve()
-	for {
-		select {
-			case message := <-node.messaging.InputMessages:
-				node.DispatchMessage(&message)
-		}
-	}
+    go node.messaging.Serve()
+    for {
+        select {
+            case message := <-node.messaging.InputMessages:
+                node.DispatchMessage(&message)
+        }
+    }
 }
 
 func (node *Node) DispatchMessage(message *messaging.Message) {
-	log.Println(message)
+    log.Printf("Got message %v", message)
+    switch message.Action {
+        case "ping":
+            outputMessage := messaging.Message{FromId: node.id, ToId: message.FromId, Action: "pong"}
+            node.messaging.OutputMessages <- outputMessage
+    }
 }
