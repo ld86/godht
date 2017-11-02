@@ -27,7 +27,11 @@ type Messaging struct {
 
 func (messaging *Messaging) Serve() {
     go messaging.doBootstrap()
-    go messaging.handleOutputMessages()
+    go messaging.handleInputMessages()
+    messaging.handleOutputMessages()
+}
+
+func (messaging *Messaging) handleInputMessages() {
     for {
         var buffer [1024]byte
         var message Message

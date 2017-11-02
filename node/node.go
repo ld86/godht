@@ -2,6 +2,7 @@ package node
 
 import (
     "log"
+    "time"
     "crypto/rand"
     "github.com/ld86/godht/messaging"
     "github.com/ld86/godht/buckets"
@@ -34,8 +35,22 @@ func (node *Node) Id() [20]byte {
     return node.id
 }
 
+func (node *Node) pingOldNodes() {
+    for {
+        for i := 0; i < 160; i++ {
+            bucket := node.buckets.GetBucket(i)
+            if bucket.Len() > 0 {
+                message := messaging.Message{FromId: node.id, ToId: bucket.Front().Value.([20]byte), Action: "ping"}
+                node.messaging.OutputMessages <- message
+            }
+        }
+        time.Sleep(60 * time.Second)
+    }
+}
+
 func (node *Node) Serve() {
     go node.messaging.Serve()
+    go node.pingOldNodes()
     for {
         select {
             case message := <-node.messaging.InputMessages:
@@ -46,6 +61,7 @@ func (node *Node) Serve() {
 
 func (node *Node) DispatchMessage(message *messaging.Message) {
     log.Printf("Got message %v", message)
+    node.buckets.AddNode(node.id, message.FromId)
     switch message.Action {
         case "ping":
             outputMessage := messaging.Message{FromId: node.id, ToId: message.FromId, Action: "pong"}
