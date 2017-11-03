@@ -1,23 +1,25 @@
 package buckets
 
 import (
+    "time"
     "math/big"
     "errors"
     "container/list"
 )
 
+type NodeInfo struct {
+    listPointer *list.Element
+    UpdateTime time.Time
+}
+
 type Buckets struct {
     k int
     buckets [160]list.List
-    nodes [160]map[[20]byte]*list.Element
+    nodes map[[20]byte]*NodeInfo
 }
 
 func NewBuckets(k int) *Buckets {
-    var nodes [160]map[[20]byte]*list.Element
-    for i := 0; i < 160; i++ {
-        nodes[i] = make(map[[20]byte]*list.Element, k)
-    }
-    return &Buckets{k: k, nodes: nodes}
+    return &Buckets{k: k, nodes: make(map[[20]byte]*NodeInfo)}
 }
 
 func Distance(node [20]byte, secondNode [20]byte) [20]byte {
@@ -45,16 +47,18 @@ func (buckets *Buckets) AddNode(local [20]byte, remote [20]byte) ([20]byte, int,
 
     bucketIndex--
 
-    remoteElement, ok := buckets.nodes[bucketIndex][remote]
+    nodeInfo, ok := buckets.nodes[remote]
 
     if !ok && buckets.buckets[bucketIndex].Len() < buckets.k {
-        e := buckets.buckets[bucketIndex].PushBack(remote)
-        buckets.nodes[bucketIndex][remote] = e
+        listPointer := buckets.buckets[bucketIndex].PushBack(remote)
+        nodeInfo = &NodeInfo{listPointer: listPointer, UpdateTime: time.Now()}
+        buckets.nodes[remote] = nodeInfo
         return remote, bucketIndex, nil
     }
 
     if ok {
-        buckets.buckets[bucketIndex].MoveToBack(remoteElement)
+        buckets.buckets[bucketIndex].MoveToBack(nodeInfo.listPointer)
+        nodeInfo.UpdateTime = time.Now()
         return remote, bucketIndex, nil
     }
 
@@ -69,18 +73,23 @@ func (buckets* Buckets) RemoveNode(local [20]byte, remote [20]byte) ([20]byte, i
     }
 
     bucketIndex--
-    remoteElement, ok := buckets.nodes[bucketIndex][remote]
+    nodeInfo, ok := buckets.nodes[remote]
 
     if !ok {
         return remote, bucketIndex, nil
     }
 
-    delete(buckets.nodes[bucketIndex], remote)
-    buckets.buckets[bucketIndex].Remove(remoteElement)
+    delete(buckets.nodes, remote)
+    buckets.buckets[bucketIndex].Remove(nodeInfo.listPointer)
 
     return remote, bucketIndex, nil
 }
 
 func (buckets* Buckets) GetBucket(index int) *list.List {
     return &buckets.buckets[index]
+}
+
+func (buckets* Buckets) GetNodeInfo(nodeId [20]byte) (*NodeInfo, bool) {
+    nodeInfo, found := buckets.nodes[nodeId]
+    return nodeInfo, found
 }
