@@ -1,6 +1,7 @@
 package buckets
 
 import (
+    "sync"
     "time"
     "math/big"
     "errors"
@@ -16,10 +17,13 @@ type Buckets struct {
     k int
     buckets [160]list.List
     nodes map[[20]byte]*NodeInfo
+    mutex *sync.Mutex
 }
 
 func NewBuckets(k int) *Buckets {
-    return &Buckets{k: k, nodes: make(map[[20]byte]*NodeInfo)}
+    return &Buckets{k: k,
+                    nodes: make(map[[20]byte]*NodeInfo),
+                    mutex: &sync.Mutex{}}
 }
 
 func Distance(node [20]byte, secondNode [20]byte) [20]byte {
@@ -39,6 +43,9 @@ func GetBucketIndex(node [20]byte, secondNode [20]byte) int {
 }
 
 func (buckets *Buckets) AddNode(local [20]byte, remote [20]byte) ([20]byte, int, error) {
+    buckets.mutex.Lock()
+    defer buckets.mutex.Unlock()
+
     bucketIndex := GetBucketIndex(local, remote)
 
     if bucketIndex == 0 {
@@ -66,6 +73,9 @@ func (buckets *Buckets) AddNode(local [20]byte, remote [20]byte) ([20]byte, int,
 }
 
 func (buckets* Buckets) RemoveNode(local [20]byte, remote [20]byte) ([20]byte, int, error) {
+    buckets.mutex.Lock()
+    defer buckets.mutex.Unlock()
+
     bucketIndex := GetBucketIndex(local, remote)
 
     if bucketIndex == 0 {
