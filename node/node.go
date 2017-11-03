@@ -3,6 +3,7 @@ package node
 import (
     "log"
     "time"
+    "sync"
     "crypto/rand"
     "github.com/ld86/godht/messaging"
     "github.com/ld86/godht/buckets"
@@ -74,7 +75,7 @@ func (node *Node) addNodeToBuckets(fromId [20]byte) {
     returnedNodeId, bucketIndex, err := node.buckets.AddNode(node.id, fromId)
 
     if err == nil {
-        log.Printf("Successfuly add remote node to buckets")
+        log.Printf("Successfuly add remote %v to buckets", fromId)
         return
     }
 
@@ -85,7 +86,17 @@ func (node *Node) addNodeToBuckets(fromId [20]byte) {
     log.Printf("Bucket %s is full, trying to ping node %v", bucketIndex, returnedNodeId)
     go func() {
         waitingTicket := &WaitingTicket{GotPong: false}
-        node.waiting[returnedNodeId] = waitingTicket
+
+        {
+            mutex := sync.Mutex{}
+            mutex.Lock()
+            defer mutex.Unlock()
+            if _, found := node.waiting[returnedNodeId]; found {
+                log.Printf("Already waiting for node %v", returnedNodeId)
+                return
+            }
+            node.waiting[returnedNodeId] = waitingTicket
+        }
 
         pingMessage := messaging.Message{FromId: node.id, ToId: returnedNodeId, Action: "ping"}
         node.messaging.OutputMessages <- pingMessage
@@ -93,16 +104,23 @@ func (node *Node) addNodeToBuckets(fromId [20]byte) {
         log.Printf("Waiting 5 seconds for %v", returnedNodeId)
         time.Sleep(5 * time.Second)
 
-        if !waitingTicket.GotPong {
-            log.Printf("Did not get pong from %v, removing it", returnedNodeId)
-            node.buckets.RemoveNode(node.id, returnedNodeId)
-            _, _, err = node.buckets.AddNode(node.id, fromId)
-            if err != nil {
-                log.Fatalf("Something goes wrong with buckets")
+        {
+            mutex := sync.Mutex{}
+            mutex.Lock()
+            defer mutex.Unlock()
+
+            if !waitingTicket.GotPong {
+                log.Printf("Did not get pong from %v, removing it", returnedNodeId)
+                node.buckets.RemoveNode(node.id, returnedNodeId)
+                _, _, err = node.buckets.AddNode(node.id, fromId)
+                if err != nil {
+                    log.Fatalf("Something goes wrong with buckets")
+                }
+            } else {
+                log.Printf("Got pong from %v, leave it in buckets", returnedNodeId)
             }
-            return
+            delete(node.waiting, returnedNodeId)
         }
-        log.Printf("Got pong from %v, leave it in buckets", returnedNodeId)
     }()
 }
 
