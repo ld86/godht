@@ -3,6 +3,7 @@ package main
 import (
     "os"
     "github.com/ld86/godht/node"
+    "github.com/ld86/godht/viewer"
 )
 
 
@@ -13,5 +14,8 @@ func main() {
     }
 
     me := node.NewNode(bootstrapServers)
+	httpViewer := viewer.NewHttpViewer(me)
+
+	go httpViewer.Serve()
     me.Serve()
 }

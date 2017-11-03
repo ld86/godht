@@ -35,6 +35,10 @@ func (node *Node) Id() [20]byte {
     return node.id
 }
 
+func (node *Node) Buckets() *buckets.Buckets {
+    return node.buckets
+}
+
 func (node *Node) pingOldNodes() {
     for {
         for i := 0; i < 160; i++ {
