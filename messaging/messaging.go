@@ -8,11 +8,17 @@ import (
     "encoding/json"
 )
 
+type IdAddr struct {
+	Id [20]byte
+	Addr string
+}
+
 type Message struct {
     FromId [20]byte
     ToId [20]byte
     Action string
     Ids [][20]byte
+	IdsMapping []IdAddr
 }
 
 type Messaging struct {
@@ -41,6 +47,11 @@ func (messaging *Messaging) handleInputMessages() {
         log.Printf("Remember node with id %v by remoteAddr %s", message.FromId, remoteAddr)
 
         messaging.mapping[message.FromId] = remoteAddr
+		for _, idAddr := range message.IdsMapping {
+			log.Printf("Remember node with id %v by remoteAddr %s", idAddr.Id, idAddr.Addr)
+			messaging.mapping[idAddr.Id], _ = net.ResolveUDPAddr("udp", idAddr.Addr)
+		}
+
         messaging.InputMessages <- message
     }
 }
@@ -49,7 +60,6 @@ func (messaging *Messaging) handleOutputMessages() {
     for {
         select {
             case outputMessage := <-messaging.OutputMessages:
-                log.Printf("Trying to send message %v", outputMessage)
                 remoteAddr, ok := messaging.mapping[outputMessage.ToId]
                 if !ok {
                     log.Printf("Cannot find remote addr for node with id %s, skipping message")
@@ -57,6 +67,17 @@ func (messaging *Messaging) handleOutputMessages() {
                 }
                 log.Printf("Found remoteAddr %s by id %v", remoteAddr, outputMessage.ToId)
 
+				outputMessage.IdsMapping = make([]IdAddr, 0)
+				for _, nodeId := range outputMessage.Ids {
+					nodeAddr, ok := messaging.mapping[outputMessage.ToId]
+					if !ok {
+						continue
+					}
+					outputMessage.IdsMapping = append(outputMessage.IdsMapping,
+												      IdAddr{nodeId, nodeAddr.String()})
+				}
+
+                log.Printf("Trying to send message %v", outputMessage)
                 data, _ := json.Marshal(outputMessage)
                 messaging.serverConnection.WriteTo(data, remoteAddr)
         }
@@ -71,12 +92,14 @@ func (messaging *Messaging) doBootstrap() {
             continue
         }
 
+		/*
         message := Message{FromId: messaging.id, Action: "ping"}
         data, _ := json.Marshal(message)
         messaging.serverConnection.WriteTo(data, remoteAddr)
+		*/
 
-        message = Message{FromId: messaging.id, Action: "find_node", Ids: [][20]byte{messaging.id}}
-        data, _ = json.Marshal(message)
+		message := Message{FromId: messaging.id, Action: "find_node", Ids: [][20]byte{messaging.id}}
+		data, _ := json.Marshal(message)
         messaging.serverConnection.WriteTo(data, remoteAddr)
     }
 }

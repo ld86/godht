@@ -155,7 +155,6 @@ func (buckets* Buckets) GetNearestIds(local [20]byte, remote [20] byte, k int) [
 
 	}
 
-
     return result
 }
 

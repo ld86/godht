@@ -52,7 +52,7 @@ func (node *Node) pingOldNodes() {
         for i := 0; i < 160; i++ {
             bucket := node.buckets.GetBucket(i)
             if bucket.Len() > 0 {
-                message := messaging.Message{FromId: node.id, ToId: bucket.Front().Value.([20]byte), Action: "ping"}
+				message := messaging.Message{FromId: node.id, ToId: bucket.Front().Value.([20]byte), Action: "find_node", Ids: [][20]byte{node.id}}
                 node.messaging.OutputMessages <- message
             }
         }
@@ -143,6 +143,15 @@ func (node *Node) DispatchMessage(message *messaging.Message) {
             for _, value := range nearestIds {
                 log.Printf("%v", value)
             }
+			outputMessage := messaging.Message{FromId: node.id,
+											   ToId: message.FromId,
+											   Action: "find_node_result",
+											   Ids: nearestIds}
+			node.messaging.OutputMessages <- outputMessage
+		case "find_node_result":
+			for _, nodeId := range message.Ids {
+				log.Printf("%v", nodeId)
+			}
     }
 
 }
