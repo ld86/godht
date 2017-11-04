@@ -12,7 +12,7 @@ type Message struct {
     FromId [20]byte
     ToId [20]byte
     Action string
-    Data string
+    Ids [][20]byte
 }
 
 type Messaging struct {
@@ -73,6 +73,10 @@ func (messaging *Messaging) doBootstrap() {
 
         message := Message{FromId: messaging.id, Action: "ping"}
         data, _ := json.Marshal(message)
+        messaging.serverConnection.WriteTo(data, remoteAddr)
+
+        message = Message{FromId: messaging.id, Action: "find_node", Ids: [][20]byte{messaging.id}}
+        data, _ = json.Marshal(message)
         messaging.serverConnection.WriteTo(data, remoteAddr)
     }
 }

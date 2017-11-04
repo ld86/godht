@@ -103,3 +103,21 @@ func (buckets* Buckets) GetNodeInfo(nodeId [20]byte) (*NodeInfo, bool) {
     nodeInfo, found := buckets.nodes[nodeId]
     return nodeInfo, found
 }
+
+func (buckets* Buckets) GetNearestIds(local [20]byte, remote [20] byte, k int) [][20]byte {
+    buckets.mutex.Lock()
+    defer buckets.mutex.Unlock()
+
+    result := make([][20]byte, 0)
+    bucketIndex := GetBucketIndex(local, remote)
+    bucket := buckets.buckets[bucketIndex - 1]
+
+    if bucket.Len() > 0 {
+        for it := bucket.Front(); it != nil && len(result) < k; it = it.Next() {
+            result = append(result, it.Value.([20]byte))
+        }
+    }
+
+    return result
+}
+

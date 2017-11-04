@@ -108,7 +108,7 @@ func (viewer *HttpViewer) rootHandler() func(http.ResponseWriter, *http.Request)
                     nodeInfo.UpdateTime = nodeInfoFromBuckets.UpdateTime
                 }
 
-                bucketInformation.Nodes= append(bucketInformation.Nodes, nodeInfo)
+                bucketInformation.Nodes = append(bucketInformation.Nodes, nodeInfo)
             }
 
             data.Buckets[i] = bucketInformation

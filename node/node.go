@@ -138,6 +138,11 @@ func (node *Node) DispatchMessage(message *messaging.Message) {
             if found {
                 waitingTicket.GotPong = true;
             }
+        case "find_node":
+            nearestIds := node.buckets.GetNearestIds(node.id, message.FromId, 3)
+            for _, value := range nearestIds {
+                log.Printf("%v", value)
+            }
     }
 
 }
