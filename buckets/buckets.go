@@ -134,13 +134,8 @@ func (buckets* Buckets) GetNearestIds(local [20]byte, remote [20] byte, k int) [
 
     result := make([][20]byte, 0)
     bucketIndex := GetBucketIndex(local, remote)
-    bucket := buckets.buckets[bucketIndex - 1]
 
-    if bucket.Len() >= k {
-        for it := bucket.Back(); it != nil && len(result) < k; it = it.Prev() {
-            result = append(result, it.Value.([20]byte))
-        }
-    } else {
+	if bucketIndex == 0 || buckets.buckets[bucketIndex - 1].Len() < k {
 		nodesAndDistances := make(NodesAndDistances, 0)
 		for nodeId := range buckets.nodes {
 			nodeAndDistance := NodeAndDistance{Id: nodeId, Distance: Distance(nodeId, remote)}
@@ -152,8 +147,13 @@ func (buckets* Buckets) GetNearestIds(local [20]byte, remote [20] byte, k int) [
 		for i := 0; i < len(nodesAndDistances) && len(result) < k; i++ {
 			result = append(result, nodesAndDistances[i].Id)
 		}
+	} else {
+		bucket := buckets.buckets[bucketIndex - 1]
 
-	}
+        for it := bucket.Back(); it != nil && len(result) < k; it = it.Prev() {
+            result = append(result, it.Value.([20]byte))
+        }
+    }
 
     return result
 }

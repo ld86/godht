@@ -69,7 +69,7 @@ func (messaging *Messaging) handleOutputMessages() {
 
 				outputMessage.IdsMapping = make([]IdAddr, 0)
 				for _, nodeId := range outputMessage.Ids {
-					nodeAddr, ok := messaging.mapping[outputMessage.ToId]
+					nodeAddr, ok := messaging.mapping[nodeId]
 					if !ok {
 						continue
 					}
@@ -91,12 +91,6 @@ func (messaging *Messaging) doBootstrap() {
             log.Printf("Cannot resolve %s, %s", remoteIP, err)
             continue
         }
-
-		/*
-        message := Message{FromId: messaging.id, Action: "ping"}
-        data, _ := json.Marshal(message)
-        messaging.serverConnection.WriteTo(data, remoteAddr)
-		*/
 
 		message := Message{FromId: messaging.id, Action: "find_node", Ids: [][20]byte{messaging.id}}
 		data, _ := json.Marshal(message)

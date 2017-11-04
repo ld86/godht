@@ -139,18 +139,21 @@ func (node *Node) DispatchMessage(message *messaging.Message) {
                 waitingTicket.GotPong = true;
             }
         case "find_node":
-            nearestIds := node.buckets.GetNearestIds(node.id, message.FromId, 3)
-            for _, value := range nearestIds {
-                log.Printf("%v", value)
-            }
+			if len(message.Ids) == 0 {
+				return
+			}
+
+			targetId := message.Ids[0]
+            nearestIds := node.buckets.GetNearestIds(node.id, targetId, 3)
 			outputMessage := messaging.Message{FromId: node.id,
 											   ToId: message.FromId,
 											   Action: "find_node_result",
 											   Ids: nearestIds}
+
 			node.messaging.OutputMessages <- outputMessage
 		case "find_node_result":
 			for _, nodeId := range message.Ids {
-				log.Printf("%v", nodeId)
+				node.addNodeToBuckets(nodeId)
 			}
     }
 
