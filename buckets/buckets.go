@@ -1,6 +1,7 @@
 package buckets
 
 import (
+	"sort"
     "sync"
     "time"
     "math/big"
@@ -104,6 +105,29 @@ func (buckets* Buckets) GetNodeInfo(nodeId [20]byte) (*NodeInfo, bool) {
     return nodeInfo, found
 }
 
+type NodeAndDistance struct {
+	Id [20]byte
+	Distance [20]byte
+}
+type NodesAndDistances []NodeAndDistance
+
+func (nodes NodesAndDistances) Len() int {
+	return len(nodes)
+}
+
+func (nodes NodesAndDistances) Swap(i, j int) {
+	nodes[i], nodes[j] = nodes[j], nodes[i]
+}
+
+func (nodes NodesAndDistances) Less(i, j int) bool {
+	for index := 0; index < 20; index++ {
+		if nodes[i].Distance[index] < nodes[j].Distance[index] {
+			return true;
+		}
+	}
+	return false;
+}
+
 func (buckets* Buckets) GetNearestIds(local [20]byte, remote [20] byte, k int) [][20]byte {
     buckets.mutex.Lock()
     defer buckets.mutex.Unlock()
@@ -112,11 +136,25 @@ func (buckets* Buckets) GetNearestIds(local [20]byte, remote [20] byte, k int) [
     bucketIndex := GetBucketIndex(local, remote)
     bucket := buckets.buckets[bucketIndex - 1]
 
-    if bucket.Len() > 0 {
-        for it := bucket.Front(); it != nil && len(result) < k; it = it.Next() {
+    if bucket.Len() >= k {
+        for it := bucket.Back(); it != nil && len(result) < k; it = it.Prev() {
             result = append(result, it.Value.([20]byte))
         }
-    }
+    } else {
+		nodesAndDistances := make(NodesAndDistances, 0)
+		for nodeId := range buckets.nodes {
+			nodeAndDistance := NodeAndDistance{Id: nodeId, Distance: Distance(nodeId, remote)}
+			nodesAndDistances = append(nodesAndDistances, nodeAndDistance)
+		}
+
+		sort.Sort(nodesAndDistances)
+
+		for i := 0; i < len(nodesAndDistances) && len(result) < k; i++ {
+			result = append(result, nodesAndDistances[i].Id)
+		}
+
+	}
+
 
     return result
 }
