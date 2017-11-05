@@ -138,6 +138,10 @@ func (buckets* Buckets) GetNearestIds(local [20]byte, remote [20] byte, k int) [
 	if bucketIndex == 0 || buckets.buckets[bucketIndex - 1].Len() < k {
 		nodesAndDistances := make(NodesAndDistances, 0)
 		for nodeId := range buckets.nodes {
+			if nodeId == remote {
+				continue
+			}
+
 			nodeAndDistance := NodeAndDistance{Id: nodeId, Distance: Distance(nodeId, remote)}
 			nodesAndDistances = append(nodesAndDistances, nodeAndDistance)
 		}
