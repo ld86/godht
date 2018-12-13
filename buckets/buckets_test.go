@@ -1,106 +1,105 @@
 package buckets_test
 
 import (
-    "math"
-    "testing"
-    "github.com/ld86/godht/node"
-    "github.com/ld86/godht/buckets"
+	"math"
+	"testing"
+
+	"github.com/ld86/godht/buckets"
+	"github.com/ld86/godht/node"
 )
 
-func TestGetBucketIndex(t* testing.T) {
-    a := node.NewNode([]string{})
-    b := node.NewNode([]string{})
+func TestGetBucketIndex(t *testing.T) {
+	a := node.NewNode([]string{})
+	b := node.NewNode([]string{})
 
-    if buckets.GetBucketIndex(a.Id(), a.Id()) != 0 {
-        t.Error("Two same nodes should be placed in one bucket")
-    }
+	if buckets.GetBucketIndex(a.Id(), a.Id()) != 0 {
+		t.Error("Two same nodes should be placed in one bucket")
+	}
 
-    if buckets.GetBucketIndex(a.Id(), b.Id()) > 160 {
-        t.Error("Bucket index must be less than 160")
-    }
+	if buckets.GetBucketIndex(a.Id(), b.Id()) > 160 {
+		t.Error("Bucket index must be less than 160")
+	}
 
-    for j := 0; j < 20; j++ {
-        for i := 1; i < 2; i++ {
-            var manualId [20]byte
+	for j := 0; j < 20; j++ {
+		for i := 1; i < 2; i++ {
+			var manualId [20]byte
 
-            c := node.NewNodeWithId(manualId, []string{})
-            manualId[19 - j] = byte(i)
-            d := node.NewNodeWithId(manualId, []string{})
+			c := node.NewNodeWithId(manualId, []string{})
+			manualId[19-j] = byte(i)
+			d := node.NewNodeWithId(manualId, []string{})
 
-            if buckets.GetBucketIndex(c.Id(), d.Id()) != int(math.Log2(float64(i)) + 1) + j * 8 {
-                t.Error("Bad bucket index")
-            }
-        }
-    }
+			if buckets.GetBucketIndex(c.Id(), d.Id()) != int(math.Log2(float64(i))+1)+j*8 {
+				t.Error("Bad bucket index")
+			}
+		}
+	}
 }
 
-func TestAddNode(t* testing.T) {
-    const bucketSize = 10
+func TestAddNode(t *testing.T) {
+	const bucketSize = 10
 
-    local := node.NewNode([]string{})
-    buckets := buckets.NewBuckets(bucketSize)
+	local := node.NewNode([]string{})
+	buckets := buckets.NewBuckets(bucketSize)
 
-    remote := node.NewNode([]string{})
-    _, bucketIndex, _ := buckets.AddNode(local.Id(), remote.Id())
+	remote := node.NewNode([]string{})
+	_, bucketIndex, _ := buckets.AddNode(local.Id(), remote.Id())
 
-    var overflowedError error
-    var lastBucket int
-    var lastReturned [20]byte
+	var overflowedError error
+	var lastBucket int
+	var lastReturned [20]byte
 
-    for overflowedError == nil {
-        remote := node.NewNode([]string{})
-        lastReturned, lastBucket, overflowedError = buckets.AddNode(local.Id(), remote.Id())
+	for overflowedError == nil {
+		remote := node.NewNode([]string{})
+		lastReturned, lastBucket, overflowedError = buckets.AddNode(local.Id(), remote.Id())
 
-        if lastBucket == -1 {
-            t.Error("This should never happens")
-        }
+		if lastBucket == -1 {
+			t.Error("This should never happens")
+		}
 
-        if overflowedError == nil && lastReturned != remote.Id() {
-            t.Error("On success we should get remote node")
-        }
-    }
+		if overflowedError == nil && lastReturned != remote.Id() {
+			t.Error("On success we should get remote node")
+		}
+	}
 
-    bucket := buckets.GetBucket(lastBucket)
-    if bucket.Len() != bucketSize{
-        t.Error("This bucket should overflowed")
-    }
+	bucket := buckets.GetBucket(lastBucket)
+	if bucket.Len() != bucketSize {
+		t.Error("This bucket should overflowed")
+	}
 
-    if bucket.Front().Value.([20]byte) != lastReturned {
-        t.Error("On overflow we should ping first node from bucket")
-    }
+	if bucket.Front().Value.([20]byte) != lastReturned {
+		t.Error("On overflow we should ping first node from bucket")
+	}
 
-    bucket = buckets.GetBucket(bucketIndex)
-    if bucket.Len() == 0 {
-        t.Error("Bucket must be not empty")
-    }
+	bucket = buckets.GetBucket(bucketIndex)
+	if bucket.Len() == 0 {
+		t.Error("Bucket must be not empty")
+	}
 
-    if bucket.Front().Value.([20]byte) != remote.Id() {
-        t.Error("Remote node should be first")
-    }
+	if bucket.Front().Value.([20]byte) != remote.Id() {
+		t.Error("Remote node should be first")
+	}
 
-    _, _, err := buckets.AddNode(local.Id(), remote.Id())
-    if err != nil {
-        t.Error("We already have remote in buckets, so we need to move it tail")
-    }
+	_, _, err := buckets.AddNode(local.Id(), remote.Id())
+	if err != nil {
+		t.Error("We already have remote in buckets, so we need to move it tail")
+	}
 
-    if bucket.Back().Value.([20]byte) != remote.Id() {
-        t.Error("Remote node should be last")
-    }
+	if bucket.Back().Value.([20]byte) != remote.Id() {
+		t.Error("Remote node should be last")
+	}
 
-    oldSize := bucket.Len()
-    removedNode, _, err := buckets.RemoveNode(local.Id(), remote.Id())
-    if err != nil {
-        t.Error("Should never happens")
-    }
+	oldSize := bucket.Len()
+	removedNode, _, err := buckets.RemoveNode(local.Id(), remote.Id())
+	if err != nil {
+		t.Error("Should never happens")
+	}
 
-    if removedNode != remote.Id() {
-        t.Error("Removed node should be returned")
-    }
+	if removedNode != remote.Id() {
+		t.Error("Removed node should be returned")
+	}
 
-    if oldSize - 1 != bucket.Len() {
-        t.Error("Bucket should contain less nodes")
-    }
+	if oldSize-1 != bucket.Len() {
+		t.Error("Bucket should contain less nodes")
+	}
 
 }
-
-
