@@ -2,12 +2,16 @@ package node
 
 import (
 	"crypto/rand"
+	"fmt"
 	"log"
 	"sync"
 	"time"
 
+	petname "github.com/dustinkirkland/golang-petname"
+
 	"github.com/ld86/godht/buckets"
 	"github.com/ld86/godht/messaging"
+	"github.com/ld86/godht/types"
 )
 
 const BucketSize = 10
@@ -17,35 +21,62 @@ type WaitingTicket struct {
 }
 
 type Node struct {
-	id        [20]byte
+	id        types.NodeID
+	name      string
+	bootstrap []string
+
 	buckets   *buckets.Buckets
 	messaging *messaging.Messaging
 
 	waiting map[[20]byte]*WaitingTicket
 }
 
-func NewNodeWithId(id [20]byte, bootstrap []string) *Node {
+func NewNodeWithId(id types.NodeID, bootstrap []string) *Node {
 	return &Node{id: id,
+		name:      petname.Generate(2, " "),
+		bootstrap: bootstrap,
 		buckets:   buckets.NewBuckets(BucketSize),
-		messaging: messaging.NewMessaging(bootstrap, id),
+		messaging: messaging.NewMessaging(),
 		waiting:   make(map[[20]byte]*WaitingTicket)}
 }
 
 func NewNode(bootstrap []string) *Node {
-	var id [20]byte
+	var id types.NodeID
 	_, err := rand.Read(id[:])
 	if err != nil {
-		log.Panic("rand.Read failed, %s", err)
+		log.Panicf("rand.Read failed, %s", err)
 	}
 	return NewNodeWithId(id, bootstrap)
 }
 
-func (node *Node) Id() [20]byte {
+func (node *Node) String() string {
+	return fmt.Sprintf("%s %s %s",
+		node.Name(),
+		node.messaging.GetLocalAddr(),
+		node.id.String())
+}
+
+func (node *Node) Id() types.NodeID {
 	return node.id
+}
+
+func (node *Node) Name() string {
+	return node.name
 }
 
 func (node *Node) Buckets() *buckets.Buckets {
 	return node.buckets
+}
+
+func (node *Node) doBootstrap() {
+	for _, remoteIP := range node.bootstrap {
+		message := messaging.Message{FromId: node.id,
+			Action: "find_node",
+			IpAddr: &remoteIP,
+			Ids:    []types.NodeID{node.id},
+		}
+		node.messaging.OutputMessages <- message
+	}
 }
 
 func (node *Node) pingOldNodes() {
@@ -53,16 +84,21 @@ func (node *Node) pingOldNodes() {
 		for i := 0; i < 160; i++ {
 			bucket := node.buckets.GetBucket(i)
 			if bucket.Len() > 0 {
-				message := messaging.Message{FromId: node.id, ToId: bucket.Front().Value.([20]byte), Action: "find_node", Ids: [][20]byte{node.id}}
+				message := messaging.Message{FromId: node.id,
+					ToId:   bucket.Front().Value.(types.NodeID),
+					Action: "find_node",
+					Ids:    []types.NodeID{node.id},
+				}
 				node.messaging.OutputMessages <- message
 			}
 		}
-		time.Sleep(60 * time.Second)
+		time.Sleep(5 * time.Second)
 	}
 }
 
 func (node *Node) Serve() {
 	go node.messaging.Serve()
+	go node.doBootstrap()
 	go node.pingOldNodes()
 	for {
 		select {
@@ -72,11 +108,11 @@ func (node *Node) Serve() {
 	}
 }
 
-func (node *Node) addNodeToBuckets(fromId [20]byte) {
+func (node *Node) addNodeToBuckets(fromId types.NodeID) {
 	returnedNodeId, bucketIndex, err := node.buckets.AddNode(node.id, fromId)
 
 	if err == nil {
-		log.Printf("Successfuly add remote %v to buckets", fromId)
+		log.Printf("Successfuly add remote %s to buckets", fromId.String())
 		return
 	}
 
@@ -84,7 +120,7 @@ func (node *Node) addNodeToBuckets(fromId [20]byte) {
 		return
 	}
 
-	log.Printf("Bucket %d is full, trying to ping node %v", bucketIndex, returnedNodeId)
+	log.Printf("Bucket %d is full, trying to ping node %s", bucketIndex, returnedNodeId.String())
 	go func() {
 		waitingTicket := &WaitingTicket{GotPong: false}
 
@@ -93,7 +129,7 @@ func (node *Node) addNodeToBuckets(fromId [20]byte) {
 			mutex.Lock()
 			defer mutex.Unlock()
 			if _, found := node.waiting[returnedNodeId]; found {
-				log.Printf("Already waiting for node %v", returnedNodeId)
+				log.Printf("Already waiting for node %s", returnedNodeId.String())
 				return
 			}
 			node.waiting[returnedNodeId] = waitingTicket
@@ -111,14 +147,14 @@ func (node *Node) addNodeToBuckets(fromId [20]byte) {
 			defer mutex.Unlock()
 
 			if !waitingTicket.GotPong {
-				log.Printf("Did not get pong from %v, removing it", returnedNodeId)
+				log.Printf("Did not get pong from %s, removing it", returnedNodeId.String())
 				node.buckets.RemoveNode(node.id, returnedNodeId)
 				_, _, err = node.buckets.AddNode(node.id, fromId)
 				if err != nil {
 					log.Fatalf("Something goes wrong with buckets")
 				}
 			} else {
-				log.Printf("Got pong from %v, leave it in buckets", returnedNodeId)
+				log.Printf("Got pong from %s, leave it in buckets", returnedNodeId.String())
 			}
 			delete(node.waiting, returnedNodeId)
 		}
@@ -126,7 +162,7 @@ func (node *Node) addNodeToBuckets(fromId [20]byte) {
 }
 
 func (node *Node) DispatchMessage(message *messaging.Message) {
-	log.Printf("Got message %v", message)
+	log.Printf("Got message %s", message.String())
 
 	node.addNodeToBuckets(message.FromId)
 

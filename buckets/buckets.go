@@ -7,6 +7,8 @@ import (
 	"sort"
 	"sync"
 	"time"
+
+	"github.com/ld86/godht/types"
 )
 
 type NodeInfo struct {
@@ -17,17 +19,17 @@ type NodeInfo struct {
 type Buckets struct {
 	k       int
 	buckets [160]list.List
-	nodes   map[[20]byte]*NodeInfo
+	nodes   map[types.NodeID]*NodeInfo
 	mutex   *sync.Mutex
 }
 
 func NewBuckets(k int) *Buckets {
 	return &Buckets{k: k,
-		nodes: make(map[[20]byte]*NodeInfo),
+		nodes: make(map[types.NodeID]*NodeInfo),
 		mutex: &sync.Mutex{}}
 }
 
-func Distance(node [20]byte, secondNode [20]byte) [20]byte {
+func Distance(node types.NodeID, secondNode types.NodeID) [20]byte {
 	var distance [20]byte
 	for i := 0; i < 20; i++ {
 		distance[i] = node[i] ^ secondNode[i]
@@ -35,7 +37,7 @@ func Distance(node [20]byte, secondNode [20]byte) [20]byte {
 	return distance
 }
 
-func GetBucketIndex(node [20]byte, secondNode [20]byte) int {
+func GetBucketIndex(node types.NodeID, secondNode types.NodeID) int {
 	distance := Distance(node, secondNode)
 
 	var intDistance big.Int
@@ -43,7 +45,7 @@ func GetBucketIndex(node [20]byte, secondNode [20]byte) int {
 	return intDistance.BitLen()
 }
 
-func (buckets *Buckets) AddNode(local [20]byte, remote [20]byte) ([20]byte, int, error) {
+func (buckets *Buckets) AddNode(local types.NodeID, remote types.NodeID) (types.NodeID, int, error) {
 	buckets.mutex.Lock()
 	defer buckets.mutex.Unlock()
 
@@ -70,10 +72,10 @@ func (buckets *Buckets) AddNode(local [20]byte, remote [20]byte) ([20]byte, int,
 		return remote, bucketIndex, nil
 	}
 
-	return buckets.buckets[bucketIndex].Front().Value.([20]byte), bucketIndex, errors.New("Please ping this node")
+	return buckets.buckets[bucketIndex].Front().Value.(types.NodeID), bucketIndex, errors.New("Please ping this node")
 }
 
-func (buckets *Buckets) RemoveNode(local [20]byte, remote [20]byte) ([20]byte, int, error) {
+func (buckets *Buckets) RemoveNode(local types.NodeID, remote types.NodeID) (types.NodeID, int, error) {
 	buckets.mutex.Lock()
 	defer buckets.mutex.Unlock()
 
@@ -100,13 +102,23 @@ func (buckets *Buckets) GetBucket(index int) *list.List {
 	return &buckets.buckets[index]
 }
 
-func (buckets *Buckets) GetNodeInfo(nodeId [20]byte) (*NodeInfo, bool) {
+func (buckets *Buckets) GetSizes() map[int]int {
+	result := make(map[int]int)
+	for i := 0; i < 160; i++ {
+		if l := buckets.buckets[i].Len(); l > 0 {
+			result[i] = l
+		}
+	}
+	return result
+}
+
+func (buckets *Buckets) GetNodeInfo(nodeId types.NodeID) (*NodeInfo, bool) {
 	nodeInfo, found := buckets.nodes[nodeId]
 	return nodeInfo, found
 }
 
 type NodeAndDistance struct {
-	Id       [20]byte
+	Id       types.NodeID
 	Distance [20]byte
 }
 type NodesAndDistances []NodeAndDistance
@@ -128,11 +140,11 @@ func (nodes NodesAndDistances) Less(i, j int) bool {
 	return false
 }
 
-func (buckets *Buckets) GetNearestIds(local [20]byte, remote [20]byte, k int) [][20]byte {
+func (buckets *Buckets) GetNearestIds(local types.NodeID, remote types.NodeID, k int) []types.NodeID {
 	buckets.mutex.Lock()
 	defer buckets.mutex.Unlock()
 
-	result := make([][20]byte, 0)
+	result := make([]types.NodeID, 0)
 	bucketIndex := GetBucketIndex(local, remote)
 
 	if bucketIndex == 0 || buckets.buckets[bucketIndex-1].Len() < k {
@@ -155,7 +167,7 @@ func (buckets *Buckets) GetNearestIds(local [20]byte, remote [20]byte, k int) []
 		bucket := buckets.buckets[bucketIndex-1]
 
 		for it := bucket.Back(); it != nil && len(result) < k; it = it.Prev() {
-			result = append(result, it.Value.([20]byte))
+			result = append(result, it.Value.(types.NodeID))
 		}
 	}
 

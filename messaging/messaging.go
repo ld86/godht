@@ -2,37 +2,46 @@ package messaging
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"net"
 	"os"
 	"syscall"
+
+	"github.com/ld86/godht/types"
 )
 
 type IdAddr struct {
-	Id   [20]byte
+	Id   types.NodeID
 	Addr string
 }
 
 type Message struct {
-	FromId     [20]byte
-	ToId       [20]byte
+	FromId     types.NodeID
+	ToId       types.NodeID
 	Action     string
-	Ids        [][20]byte
+	Ids        []types.NodeID
 	IdsMapping []IdAddr
+	IpAddr     *string
 }
 
 type Messaging struct {
 	serverConnection net.PacketConn
-	mapping          map[[20]byte]net.Addr
-	bootstrap        []string
-	id               [20]byte
+	mapping          map[types.NodeID]net.Addr
 
 	InputMessages  chan Message
 	OutputMessages chan Message
 }
 
+func (message *Message) String() string {
+	return fmt.Sprintf("%s<-%s %s", message.ToId.String(), message.FromId.String(), message.Action)
+}
+
+func (messaging *Messaging) GetLocalAddr() string {
+	return messaging.serverConnection.LocalAddr().String()
+}
+
 func (messaging *Messaging) Serve() {
-	go messaging.doBootstrap()
 	go messaging.handleInputMessages()
 	messaging.handleOutputMessages()
 }
@@ -44,7 +53,7 @@ func (messaging *Messaging) handleInputMessages() {
 		n, remoteAddr, _ := messaging.serverConnection.ReadFrom(buffer[:])
 		json.Unmarshal(buffer[:n], &message)
 
-		log.Printf("Remember node with id %v by remoteAddr %s", message.FromId, remoteAddr)
+		log.Printf("Remember node with id %s by remoteAddr %s", message.FromId.String(), remoteAddr)
 
 		messaging.mapping[message.FromId] = remoteAddr
 		for _, idAddr := range message.IdsMapping {
@@ -60,41 +69,40 @@ func (messaging *Messaging) handleOutputMessages() {
 	for {
 		select {
 		case outputMessage := <-messaging.OutputMessages:
-			remoteAddr, ok := messaging.mapping[outputMessage.ToId]
-			if !ok {
-				log.Printf("Cannot find remote addr for node with id %s, skipping message")
-				continue
+			var remoteAddr net.Addr
+
+			if outputMessage.IpAddr == nil {
+				var ok bool
+				remoteAddr, ok = messaging.mapping[outputMessage.ToId]
+				if !ok {
+					log.Printf("Cannot find remote addr for node with id %s, skipping message", outputMessage.ToId)
+					continue
+				}
+				log.Printf("Found remoteAddr %s by id %s", remoteAddr, outputMessage.ToId.String())
+			} else {
+				var err error
+				remoteAddr, err = net.ResolveUDPAddr("udp", *outputMessage.IpAddr)
+				if err != nil {
+					log.Printf("Cannot resolve %s, %s", *outputMessage.IpAddr, err)
+					continue
+				}
+				log.Printf("Resolved remoteAddr %s", *outputMessage.IpAddr)
 			}
-			log.Printf("Found remoteAddr %s by id %v", remoteAddr, outputMessage.ToId)
 
 			outputMessage.IdsMapping = make([]IdAddr, 0)
-			for _, nodeId := range outputMessage.Ids {
-				nodeAddr, ok := messaging.mapping[nodeId]
+			for _, nodeID := range outputMessage.Ids {
+				nodeAddr, ok := messaging.mapping[nodeID]
 				if !ok {
 					continue
 				}
 				outputMessage.IdsMapping = append(outputMessage.IdsMapping,
-					IdAddr{nodeId, nodeAddr.String()})
+					IdAddr{nodeID, nodeAddr.String()})
 			}
 
-			log.Printf("Trying to send message %v", outputMessage)
+			log.Printf("Trying to send message %s", outputMessage.String())
 			data, _ := json.Marshal(outputMessage)
 			messaging.serverConnection.WriteTo(data, remoteAddr)
 		}
-	}
-}
-
-func (messaging *Messaging) doBootstrap() {
-	for _, remoteIP := range messaging.bootstrap {
-		remoteAddr, err := net.ResolveUDPAddr("udp", remoteIP)
-		if err != nil {
-			log.Printf("Cannot resolve %s, %s", remoteIP, err)
-			continue
-		}
-
-		message := Message{FromId: messaging.id, Action: "find_node", Ids: [][20]byte{messaging.id}}
-		data, _ := json.Marshal(message)
-		messaging.serverConnection.WriteTo(data, remoteAddr)
 	}
 }
 
@@ -131,15 +139,11 @@ func createPacketConn() net.PacketConn {
 	return conn
 }
 
-func NewMessaging(bootstrap []string, id [20]byte) *Messaging {
+func NewMessaging() *Messaging {
 	serverConnection := createPacketConn()
-
-	log.Printf("Waiting messages on %s", serverConnection.LocalAddr())
-
 	return &Messaging{serverConnection: serverConnection,
-		mapping:        make(map[[20]byte]net.Addr),
+		mapping:        make(map[types.NodeID]net.Addr),
 		InputMessages:  make(chan Message),
 		OutputMessages: make(chan Message),
-		bootstrap:      bootstrap,
-		id:             id}
+	}
 }
