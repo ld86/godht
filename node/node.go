@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"fmt"
 	"log"
+	"sort"
 	"sync"
 	"time"
 
@@ -106,7 +107,7 @@ func (node *Node) pingOldNodes() {
 				node.messaging.MessagesToSend <- message
 			}
 		}
-		time.Sleep(5 * time.Second)
+		time.Sleep(60 * time.Second)
 	}
 }
 
@@ -115,7 +116,7 @@ func (node *Node) Serve() {
 	go node.buckets.Serve()
 
 	go node.doBootstrap()
-	go node.pingOldNodes()
+	// go node.pingOldNodes()
 
 	node.messaging.SetDefaultReceiver(node.defaultReceiver)
 
@@ -127,8 +128,78 @@ func (node *Node) Serve() {
 	}
 }
 
-func (node *Node) FindNode(nodeID types.NodeID) []types.NodeID {
-	return nil
+func (node *Node) FindNode(targetNodeID types.NodeID) []types.NodeID {
+	alpha := 3
+	k := 10
+
+	nearestIds := node.buckets.GetNearestIds(node.id, targetNodeID, alpha)
+	alreadyQueried := make(map[types.NodeID]bool)
+	nodesAndDistances := make(buckets.NodesAndDistances, 0)
+
+	foundNodes := make([]types.NodeID, 0)
+
+	fmt.Println("From buckets")
+	for _, nearestID := range nearestIds {
+		fmt.Println(nearestID.String())
+		alreadyQueried[nearestID] = false
+		nodeAndDistance := buckets.NodeAndDistance{Id: nearestID, Distance: buckets.Distance(targetNodeID, nearestID)}
+		nodesAndDistances = append(nodesAndDistances, nodeAndDistance)
+	}
+
+	found := true
+	for found {
+		found = false
+		sort.Sort(nodesAndDistances)
+		for i := 0; i < len(nodesAndDistances) && i < k; i++ {
+			fmt.Printf("%s %v\n", nodesAndDistances[i].Id.String(), alreadyQueried[nodesAndDistances[i].Id])
+			if alreadyQueried[nodesAndDistances[i].Id] {
+				continue
+			}
+
+			found = true
+			alreadyQueried[nodesAndDistances[i].Id] = true
+
+			transactionID := types.NewTransactionID()
+			transactionReceiver := make(chan messaging.Message)
+
+			message := messaging.Message{FromId: node.id,
+				ToId:          nodesAndDistances[i].Id,
+				Action:        "find_node",
+				Ids:           []types.NodeID{targetNodeID},
+				TransactionID: &transactionID,
+			}
+
+			node.messaging.AddTransactionReceiver(transactionID, transactionReceiver)
+			defer node.messaging.RemoveTransactionReceiver(transactionID)
+
+			node.messaging.MessagesToSend <- message
+			select {
+			case response := <-transactionReceiver:
+				for _, nodeID := range response.Ids {
+					if nodeID == node.id {
+						continue
+					}
+					node.addNodeToBuckets(nodeID)
+					_, found := alreadyQueried[nodeID]
+					if !found {
+						fmt.Printf("Added %s\n", nodeID.String())
+
+						alreadyQueried[nodeID] = false
+						nodeAndDistance := buckets.NodeAndDistance{Id: nodeID, Distance: buckets.Distance(nodeID, targetNodeID)}
+						nodesAndDistances = append(nodesAndDistances, nodeAndDistance)
+					}
+				}
+			case <-time.After(5 * time.Second):
+				log.Println("Timeout")
+			}
+		}
+	}
+
+	for i := 0; i < len(nodesAndDistances) && i < alpha; i++ {
+		foundNodes = append(foundNodes, nodesAndDistances[i].Id)
+	}
+
+	return foundNodes
 }
 
 func (node *Node) addNodeToBuckets(fromId types.NodeID) {
@@ -205,6 +276,7 @@ func (node *Node) DispatchMessage(message *messaging.Message) {
 
 		targetId := message.Ids[0]
 		nearestIds := node.buckets.GetNearestIds(node.id, targetId, 3)
+		fmt.Println(message.TransactionID)
 		outputMessage := messaging.Message{FromId: node.id,
 			ToId:          message.FromId,
 			Action:        "find_node_result",

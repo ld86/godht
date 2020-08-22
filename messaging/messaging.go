@@ -95,6 +95,10 @@ func (messaging *Messaging) handleSentMessages() {
 	for {
 		select {
 		case outputMessage := <-messaging.MessagesToSend:
+			if outputMessage.FromId == outputMessage.ToId {
+				log.Printf("Drop message to yourself")
+				continue
+			}
 			var remoteAddr net.Addr
 
 			if outputMessage.IpAddr == nil {

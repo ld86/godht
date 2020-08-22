@@ -2,7 +2,9 @@ package main
 
 import (
 	crypto_rand "crypto/rand"
+	"crypto/sha1"
 	"encoding/binary"
+	"flag"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -24,11 +26,9 @@ func init() {
 		panic("init()")
 	}
 	math_rand.Seed(int64(binary.LittleEndian.Uint64(b[:])))
-	log.SetFlags(log.LstdFlags | log.Lshortfile)
-	log.SetOutput(ioutil.Discard)
 }
 
-var currentNode *node.Node
+var mainNode *node.Node
 
 func executor(line string) {
 	line = strings.TrimSpace(line)
@@ -40,7 +40,7 @@ func executor(line string) {
 
 	switch fields[0] {
 	case "print":
-		fmt.Println(currentNode)
+		fmt.Println(mainNode)
 		break
 	case "new":
 		var bootstrapServers []string
@@ -48,11 +48,11 @@ func executor(line string) {
 			bootstrapServers = append(bootstrapServers, fields[1:]...)
 		}
 
-		currentNode = node.NewNode(bootstrapServers)
+		mainNode = node.NewNode(bootstrapServers)
 
-		fmt.Println(currentNode)
+		fmt.Println(mainNode)
 	case "serve":
-		go currentNode.Serve()
+		go mainNode.Serve()
 	case "logs":
 		i, err := strconv.Atoi(fields[1])
 		if err != nil {
@@ -63,8 +63,24 @@ func executor(line string) {
 		} else {
 			log.SetOutput(os.Stderr)
 		}
+	case "find":
+		if len(fields) < 2 {
+			return
+		}
+		key := fields[1]
+		keyHash := sha1.New().Sum([]byte(key))
+		keyID := types.NodeID{}
+
+		copy(keyID[:], keyHash[:])
+		nearestNodes := mainNode.FindNode(keyID)
+
+		fmt.Println("Nearest nodes")
+		for _, nodeID := range nearestNodes {
+			fmt.Println(nodeID.String())
+		}
+
 	case "buckets":
-		for k, v := range currentNode.Buckets().GetSizes() {
+		for k, v := range mainNode.Buckets().GetSizes() {
 			fmt.Printf("%d %d\n", k, v)
 		}
 	case "bucket":
@@ -75,13 +91,13 @@ func executor(line string) {
 		if err != nil {
 			return
 		}
-		bucket := currentNode.Buckets().GetBucket(bucketIndex)
+		bucket := mainNode.Buckets().GetBucket(bucketIndex)
 		if bucket.Len() == 0 {
 			return
 		}
 		for it := bucket.Front(); it != nil; it = it.Next() {
 			nodeID := it.Value.(types.NodeID)
-			nodeInfoFromBuckets, found := currentNode.Buckets().GetNodeInfo(nodeID)
+			nodeInfoFromBuckets, found := mainNode.Buckets().GetNodeInfo(nodeID)
 			if !found {
 				return
 			}
@@ -103,9 +119,23 @@ func completer(t prompt.Document) []prompt.Suggest {
 }
 
 func main() {
-	p := prompt.New(
-		executor,
-		completer,
-	)
-	p.Run()
+	interactive := flag.Bool("i", false, "Start interactive shell")
+	flag.Parse()
+
+	if *interactive {
+		p := prompt.New(
+			executor,
+			completer,
+		)
+		p.Run()
+	} else {
+		var bootstrapServers []string
+		if len(flag.Args()) > 0 {
+			bootstrapServers = append(bootstrapServers, flag.Args()...)
+		}
+		mainNode = node.NewNode(bootstrapServers)
+		log.Println(mainNode)
+		mainNode.Serve()
+	}
+
 }
