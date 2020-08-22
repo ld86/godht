@@ -195,6 +195,8 @@ func (node *Node) FindNode(targetNodeID types.NodeID) []types.NodeID {
 		}
 	}
 
+	sort.Sort(nodesAndDistances)
+
 	for i := 0; i < len(nodesAndDistances) && i < alpha; i++ {
 		foundNodes = append(foundNodes, nodesAndDistances[i].Id)
 	}

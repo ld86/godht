@@ -245,9 +245,10 @@ func (nodes NodesAndDistances) Swap(i, j int) {
 
 func (nodes NodesAndDistances) Less(i, j int) bool {
 	for index := 0; index < 20; index++ {
-		if nodes[i].Distance[index] < nodes[j].Distance[index] {
-			return true
+		if nodes[i].Distance[index] == nodes[j].Distance[index] {
+			continue
 		}
+		return nodes[i].Distance[index] < nodes[j].Distance[index]
 	}
 	return false
 }

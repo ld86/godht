@@ -2,6 +2,8 @@ package buckets_test
 
 import (
 	"math"
+	"math/big"
+	"sort"
 	"testing"
 
 	"github.com/ld86/godht/buckets"
@@ -32,6 +34,31 @@ func TestGetBucketIndex(t *testing.T) {
 			if buckets.GetBucketIndex(c.Id(), d.Id()) != int(math.Log2(float64(i))+1)+j*8 {
 				t.Error("Bad bucket index")
 			}
+		}
+	}
+}
+
+func TestDistance(t *testing.T) {
+	var nodesAndDistances buckets.NodesAndDistances
+	for j := 0; j < 20; j++ {
+		for i := 1; i < 2; i++ {
+			var manualId [20]byte
+
+			a := node.NewNodeWithId(manualId, []string{})
+			manualId[j] = byte(i)
+			b := node.NewNodeWithId(manualId, []string{})
+
+			distance := buckets.Distance(a.Id(), b.Id())
+			nodesAndDistances = append(nodesAndDistances, buckets.NodeAndDistance{Id: b.Id(), Distance: distance})
+		}
+	}
+	sort.Sort(nodesAndDistances)
+	for j := 0; j < 19; j++ {
+		var a, b big.Int
+		a.SetBytes(nodesAndDistances[j].Distance[:])
+		b.SetBytes(nodesAndDistances[j+1].Distance[:])
+		if a.Cmp(&b) > 0 {
+			t.Errorf("Wrong order %s > %s", a.String(), b.String())
 		}
 	}
 }
