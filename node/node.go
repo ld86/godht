@@ -28,16 +28,19 @@ type Node struct {
 	buckets   *buckets.Buckets
 	messaging *messaging.Messaging
 
-	waiting map[[20]byte]*WaitingTicket
+	defaultReceiver chan messaging.Message
+
+	waiting map[types.NodeID]*WaitingTicket
 }
 
 func NewNodeWithId(id types.NodeID, bootstrap []string) *Node {
 	return &Node{id: id,
-		name:      petname.Generate(2, " "),
-		bootstrap: bootstrap,
-		buckets:   buckets.NewBuckets(BucketSize),
-		messaging: messaging.NewMessaging(),
-		waiting:   make(map[[20]byte]*WaitingTicket)}
+		name:            petname.Generate(2, " "),
+		bootstrap:       bootstrap,
+		buckets:         buckets.NewBuckets(BucketSize),
+		messaging:       messaging.NewMessaging(),
+		defaultReceiver: make(chan messaging.Message),
+		waiting:         make(map[types.NodeID]*WaitingTicket)}
 }
 
 func NewNode(bootstrap []string) *Node {
@@ -69,13 +72,25 @@ func (node *Node) Buckets() *buckets.Buckets {
 }
 
 func (node *Node) doBootstrap() {
+	if len(node.bootstrap) == 0 {
+		return
+	}
+
+	/*
+		transactionID := types.NewTransactionID()
+		transactionReceiver := make(chan messaging.Message)
+
+		node.messaging.AddTransactionReceiver(transactionID, transactionReceiver)
+		defer node.messaging.RemoveTransactionReceiver(transactionID)
+	*/
+
 	for _, remoteIP := range node.bootstrap {
 		message := messaging.Message{FromId: node.id,
 			Action: "find_node",
 			IpAddr: &remoteIP,
 			Ids:    []types.NodeID{node.id},
 		}
-		node.messaging.OutputMessages <- message
+		node.messaging.MessagesToSend <- message
 	}
 }
 
@@ -86,10 +101,9 @@ func (node *Node) pingOldNodes() {
 			if bucket.Len() > 0 {
 				message := messaging.Message{FromId: node.id,
 					ToId:   bucket.Front().Value.(types.NodeID),
-					Action: "find_node",
-					Ids:    []types.NodeID{node.id},
+					Action: "ping",
 				}
-				node.messaging.OutputMessages <- message
+				node.messaging.MessagesToSend <- message
 			}
 		}
 		time.Sleep(5 * time.Second)
@@ -98,14 +112,23 @@ func (node *Node) pingOldNodes() {
 
 func (node *Node) Serve() {
 	go node.messaging.Serve()
+	go node.buckets.Serve()
+
 	go node.doBootstrap()
 	go node.pingOldNodes()
+
+	node.messaging.SetDefaultReceiver(node.defaultReceiver)
+
 	for {
 		select {
-		case message := <-node.messaging.InputMessages:
+		case message := <-node.defaultReceiver:
 			node.DispatchMessage(&message)
 		}
 	}
+}
+
+func (node *Node) FindNode(nodeID types.NodeID) []types.NodeID {
+	return nil
 }
 
 func (node *Node) addNodeToBuckets(fromId types.NodeID) {
@@ -136,7 +159,7 @@ func (node *Node) addNodeToBuckets(fromId types.NodeID) {
 		}
 
 		pingMessage := messaging.Message{FromId: node.id, ToId: returnedNodeId, Action: "ping"}
-		node.messaging.OutputMessages <- pingMessage
+		node.messaging.MessagesToSend <- pingMessage
 
 		log.Printf("Waiting 5 seconds for %v", returnedNodeId)
 		time.Sleep(5 * time.Second)
@@ -169,7 +192,7 @@ func (node *Node) DispatchMessage(message *messaging.Message) {
 	switch message.Action {
 	case "ping":
 		outputMessage := messaging.Message{FromId: node.id, ToId: message.FromId, Action: "pong"}
-		node.messaging.OutputMessages <- outputMessage
+		node.messaging.MessagesToSend <- outputMessage
 	case "pong":
 		waitingTicket, found := node.waiting[message.FromId]
 		if found {
@@ -183,11 +206,13 @@ func (node *Node) DispatchMessage(message *messaging.Message) {
 		targetId := message.Ids[0]
 		nearestIds := node.buckets.GetNearestIds(node.id, targetId, 3)
 		outputMessage := messaging.Message{FromId: node.id,
-			ToId:   message.FromId,
-			Action: "find_node_result",
-			Ids:    nearestIds}
+			ToId:          message.FromId,
+			Action:        "find_node_result",
+			Ids:           nearestIds,
+			TransactionID: message.TransactionID,
+		}
 
-		node.messaging.OutputMessages <- outputMessage
+		node.messaging.MessagesToSend <- outputMessage
 	case "find_node_result":
 		for _, nodeId := range message.Ids {
 			node.addNodeToBuckets(nodeId)

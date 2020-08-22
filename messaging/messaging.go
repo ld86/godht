@@ -17,20 +17,22 @@ type IdAddr struct {
 }
 
 type Message struct {
-	FromId     types.NodeID
-	ToId       types.NodeID
-	Action     string
-	Ids        []types.NodeID
-	IdsMapping []IdAddr
-	IpAddr     *string
+	FromId          types.NodeID
+	ToId            types.NodeID
+	Action          string
+	Ids             []types.NodeID
+	IdToAddrMapping []IdAddr
+	IpAddr          *string
+	TransactionID   *types.TransactionID
 }
 
 type Messaging struct {
 	serverConnection net.PacketConn
 	mapping          map[types.NodeID]net.Addr
 
-	InputMessages  chan Message
-	OutputMessages chan Message
+	DefaultReceiver      chan Message
+	TransactionReceivers map[types.TransactionID]chan Message
+	MessagesToSend       chan Message
 }
 
 func (message *Message) String() string {
@@ -41,14 +43,26 @@ func (messaging *Messaging) GetLocalAddr() string {
 	return messaging.serverConnection.LocalAddr().String()
 }
 
-func (messaging *Messaging) Serve() {
-	go messaging.handleInputMessages()
-	messaging.handleOutputMessages()
+func (messaging *Messaging) SetDefaultReceiver(receiver chan Message) {
+	messaging.DefaultReceiver = receiver
 }
 
-func (messaging *Messaging) handleInputMessages() {
+func (messaging *Messaging) AddTransactionReceiver(id types.TransactionID, receiver chan Message) {
+	messaging.TransactionReceivers[id] = receiver
+}
+
+func (messaging *Messaging) RemoveTransactionReceiver(id types.TransactionID) {
+	delete(messaging.TransactionReceivers, id)
+}
+
+func (messaging *Messaging) Serve() {
+	go messaging.handleReceivedMessages()
+	messaging.handleSentMessages()
+}
+
+func (messaging *Messaging) handleReceivedMessages() {
 	for {
-		var buffer [1024]byte
+		var buffer [2048]byte
 		var message Message
 		n, remoteAddr, _ := messaging.serverConnection.ReadFrom(buffer[:])
 		json.Unmarshal(buffer[:n], &message)
@@ -56,19 +70,31 @@ func (messaging *Messaging) handleInputMessages() {
 		log.Printf("Remember node with id %s by remoteAddr %s", message.FromId.String(), remoteAddr)
 
 		messaging.mapping[message.FromId] = remoteAddr
-		for _, idAddr := range message.IdsMapping {
-			log.Printf("Remember node with id %v by remoteAddr %s", idAddr.Id, idAddr.Addr)
+		for _, idAddr := range message.IdToAddrMapping {
+			log.Printf("Remember node with id %s by remoteAddr %s", idAddr.Id.String(), idAddr.Addr)
 			messaging.mapping[idAddr.Id], _ = net.ResolveUDPAddr("udp", idAddr.Addr)
 		}
 
-		messaging.InputMessages <- message
+		if message.TransactionID == nil {
+			if messaging.DefaultReceiver != nil {
+				messaging.DefaultReceiver <- message
+			}
+		} else {
+			channel, found := messaging.TransactionReceivers[*message.TransactionID]
+			if !found {
+				channel = messaging.DefaultReceiver
+			}
+			if channel != nil {
+				channel <- message
+			}
+		}
 	}
 }
 
-func (messaging *Messaging) handleOutputMessages() {
+func (messaging *Messaging) handleSentMessages() {
 	for {
 		select {
-		case outputMessage := <-messaging.OutputMessages:
+		case outputMessage := <-messaging.MessagesToSend:
 			var remoteAddr net.Addr
 
 			if outputMessage.IpAddr == nil {
@@ -89,13 +115,13 @@ func (messaging *Messaging) handleOutputMessages() {
 				log.Printf("Resolved remoteAddr %s", *outputMessage.IpAddr)
 			}
 
-			outputMessage.IdsMapping = make([]IdAddr, 0)
+			outputMessage.IdToAddrMapping = make([]IdAddr, 0)
 			for _, nodeID := range outputMessage.Ids {
 				nodeAddr, ok := messaging.mapping[nodeID]
 				if !ok {
 					continue
 				}
-				outputMessage.IdsMapping = append(outputMessage.IdsMapping,
+				outputMessage.IdToAddrMapping = append(outputMessage.IdToAddrMapping,
 					IdAddr{nodeID, nodeAddr.String()})
 			}
 
@@ -142,8 +168,8 @@ func createPacketConn() net.PacketConn {
 func NewMessaging() *Messaging {
 	serverConnection := createPacketConn()
 	return &Messaging{serverConnection: serverConnection,
-		mapping:        make(map[types.NodeID]net.Addr),
-		InputMessages:  make(chan Message),
-		OutputMessages: make(chan Message),
+		mapping:              make(map[types.NodeID]net.Addr),
+		TransactionReceivers: make(map[types.TransactionID]chan Message),
+		MessagesToSend:       make(chan Message),
 	}
 }

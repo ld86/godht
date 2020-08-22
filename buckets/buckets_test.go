@@ -6,6 +6,7 @@ import (
 
 	"github.com/ld86/godht/buckets"
 	"github.com/ld86/godht/node"
+	"github.com/ld86/godht/types"
 )
 
 func TestGetBucketIndex(t *testing.T) {
@@ -41,6 +42,8 @@ func TestAddNode(t *testing.T) {
 	local := node.NewNode([]string{})
 	buckets := buckets.NewBuckets(bucketSize)
 
+	go buckets.Serve()
+
 	remote := node.NewNode([]string{})
 	_, bucketIndex, _ := buckets.AddNode(local.Id(), remote.Id())
 
@@ -66,7 +69,7 @@ func TestAddNode(t *testing.T) {
 		t.Error("This bucket should overflowed")
 	}
 
-	if bucket.Front().Value.([20]byte) != lastReturned {
+	if bucket.Front().Value.(types.NodeID) != lastReturned {
 		t.Error("On overflow we should ping first node from bucket")
 	}
 
@@ -75,7 +78,7 @@ func TestAddNode(t *testing.T) {
 		t.Error("Bucket must be not empty")
 	}
 
-	if bucket.Front().Value.([20]byte) != remote.Id() {
+	if bucket.Front().Value.(types.NodeID) != remote.Id() {
 		t.Error("Remote node should be first")
 	}
 
@@ -84,7 +87,7 @@ func TestAddNode(t *testing.T) {
 		t.Error("We already have remote in buckets, so we need to move it tail")
 	}
 
-	if bucket.Back().Value.([20]byte) != remote.Id() {
+	if bucket.Back().Value.(types.NodeID) != remote.Id() {
 		t.Error("Remote node should be last")
 	}
 

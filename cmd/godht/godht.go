@@ -1,9 +1,12 @@
 package main
 
 import (
+	crypto_rand "crypto/rand"
+	"encoding/binary"
 	"fmt"
 	"io/ioutil"
 	"log"
+	math_rand "math/rand"
 	"os"
 	"strconv"
 	"strings"
@@ -13,6 +16,17 @@ import (
 
 	prompt "github.com/c-bata/go-prompt"
 )
+
+func init() {
+	var b [8]byte
+	_, err := crypto_rand.Read(b[:])
+	if err != nil {
+		panic("init()")
+	}
+	math_rand.Seed(int64(binary.LittleEndian.Uint64(b[:])))
+	log.SetFlags(log.LstdFlags | log.Lshortfile)
+	log.SetOutput(ioutil.Discard)
+}
 
 var currentNode *node.Node
 
@@ -66,12 +80,12 @@ func executor(line string) {
 			return
 		}
 		for it := bucket.Front(); it != nil; it = it.Next() {
-			nodeId := it.Value.(types.NodeID)
-			nodeInfoFromBuckets, found := currentNode.Buckets().GetNodeInfo(nodeId)
+			nodeID := it.Value.(types.NodeID)
+			nodeInfoFromBuckets, found := currentNode.Buckets().GetNodeInfo(nodeID)
 			if !found {
 				return
 			}
-			fmt.Printf("%s %s\n", nodeId.String(), nodeInfoFromBuckets.UpdateTime)
+			fmt.Printf("%s %s\n", nodeID.String(), nodeInfoFromBuckets.UpdateTime)
 		}
 	}
 	return
@@ -82,11 +96,13 @@ func completer(t prompt.Document) []prompt.Suggest {
 		{Text: "print"},
 		{Text: "new"},
 		{Text: "serve"},
+		{Text: "logs"},
+		{Text: "buckets"},
+		{Text: "bucket"},
 	}
 }
 
 func main() {
-	log.SetOutput(ioutil.Discard)
 	p := prompt.New(
 		executor,
 		completer,

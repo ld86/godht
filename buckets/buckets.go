@@ -16,17 +16,67 @@ type NodeInfo struct {
 	UpdateTime  time.Time
 }
 
+type AddNodeResponse struct {
+	AddedId     types.NodeID
+	BucketIndex int
+	Err         error
+}
+
+type AddNodeRequest struct {
+	Local  types.NodeID
+	Remote types.NodeID
+}
+
+type RemoveNodeResponse struct {
+	RemovedId   types.NodeID
+	BucketIndex int
+	Err         error
+}
+
+type RemoveNodeRequest struct {
+	Local  types.NodeID
+	Remote types.NodeID
+}
+
+type Message struct {
+	Action   string
+	Request  interface{}
+	Response chan interface{}
+}
+
 type Buckets struct {
 	k       int
 	buckets [160]list.List
 	nodes   map[types.NodeID]*NodeInfo
 	mutex   *sync.Mutex
+
+	Messages chan Message
 }
 
 func NewBuckets(k int) *Buckets {
 	return &Buckets{k: k,
-		nodes: make(map[types.NodeID]*NodeInfo),
-		mutex: &sync.Mutex{}}
+		nodes:    make(map[types.NodeID]*NodeInfo),
+		mutex:    &sync.Mutex{},
+		Messages: make(chan Message),
+	}
+}
+
+func (buckets *Buckets) Serve() {
+	buckets.handleMessages()
+}
+
+func (buckets *Buckets) handleMessages() {
+	for {
+		select {
+		case message := <-buckets.Messages:
+			switch message.Action {
+			case "AddNode":
+				buckets.handleAddNode(message)
+			case "RemoveNode":
+				buckets.handleRemoveNode(message)
+			}
+		}
+	}
 }
 
 func Distance(node types.NodeID, secondNode types.NodeID) [20]byte {
@@ -45,7 +95,7 @@ func GetBucketIndex(node types.NodeID, secondNode types.NodeID) int {
 	return intDistance.BitLen()
 }
 
-func (buckets *Buckets) AddNode(local types.NodeID, remote types.NodeID) (types.NodeID, int, error) {
+func (buckets *Buckets) innerAddNode(local types.NodeID, remote types.NodeID) (types.NodeID, int, error) {
 	buckets.mutex.Lock()
 	defer buckets.mutex.Unlock()
 
@@ -75,7 +125,38 @@ func (buckets *Buckets) AddNode(local types.NodeID, remote types.NodeID) (types.
 	return buckets.buckets[bucketIndex].Front().Value.(types.NodeID), bucketIndex, errors.New("Please ping this node")
 }
 
-func (buckets *Buckets) RemoveNode(local types.NodeID, remote types.NodeID) (types.NodeID, int, error) {
+func (buckets *Buckets) AddNode(local types.NodeID, remote types.NodeID) (types.NodeID, int, error) {
+	responseChan := make(chan interface{})
+	request := AddNodeRequest{
+		Local:  local,
+		Remote: remote,
+	}
+	message := Message{
+		Action:   "AddNode",
+		Request:  request,
+		Response: responseChan,
+	}
+
+	buckets.Messages <- message
+	response := (<-responseChan).(AddNodeResponse)
+	return response.AddedId, response.BucketIndex, response.Err
+}
+
+func (buckets *Buckets) handleAddNode(message Message) {
+	request, ok := message.Request.(AddNodeRequest)
+	if !ok {
+		return
+	}
+	addedId, bucketIndex, err := buckets.innerAddNode(request.Local, request.Remote)
+	response := AddNodeResponse{
+		AddedId:     addedId,
+		BucketIndex: bucketIndex,
+		Err:         err,
+	}
+	message.Response <- response
+}
+
+func (buckets *Buckets) innerRemoveNode(local types.NodeID, remote types.NodeID) (types.NodeID, int, error) {
 	buckets.mutex.Lock()
 	defer buckets.mutex.Unlock()
 
@@ -96,6 +177,37 @@ func (buckets *Buckets) RemoveNode(local types.NodeID, remote types.NodeID) (typ
 	buckets.buckets[bucketIndex].Remove(nodeInfo.listPointer)
 
 	return remote, bucketIndex, nil
+}
+
+func (buckets *Buckets) RemoveNode(local types.NodeID, remote types.NodeID) (types.NodeID, int, error) {
+	responseChan := make(chan interface{})
+	request := RemoveNodeRequest{
+		Local:  local,
+		Remote: remote,
+	}
+	message := Message{
+		Action:   "RemoveNode",
+		Request:  request,
+		Response: responseChan,
+	}
+
+	buckets.Messages <- message
+	response := (<-responseChan).(RemoveNodeResponse)
+	return response.RemovedId, response.BucketIndex, response.Err
+}
+
+func (buckets *Buckets) handleRemoveNode(message Message) {
+	request, ok := message.Request.(RemoveNodeRequest)
+	if !ok {
+		return
+	}
+	removedId, bucketIndex, err := buckets.innerRemoveNode(request.Local, request.Remote)
+	response := RemoveNodeResponse{
+		RemovedId:   removedId,
+		BucketIndex: bucketIndex,
+		Err:         err,
+	}
+	message.Response <- response
 }
 
 func (buckets *Buckets) GetBucket(index int) *list.List {
