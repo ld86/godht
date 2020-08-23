@@ -68,7 +68,9 @@ func executor(line string) {
 			return
 		}
 		key := fields[1]
-		keyHash := sha1.New().Sum([]byte(key))
+		h := sha1.New()
+		h.Write([]byte(key))
+		keyHash := h.Sum(nil)
 		keyID := types.NodeID{}
 
 		copy(keyID[:], keyHash[:])

@@ -6,6 +6,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"sync"
 	"syscall"
 
 	"github.com/ld86/godht/types"
@@ -29,6 +30,7 @@ type Message struct {
 type Messaging struct {
 	serverConnection net.PacketConn
 	mapping          map[types.NodeID]net.Addr
+	mutex            *sync.Mutex
 
 	DefaultReceiver      chan Message
 	TransactionReceivers map[types.TransactionID]chan Message
@@ -48,10 +50,16 @@ func (messaging *Messaging) SetDefaultReceiver(receiver chan Message) {
 }
 
 func (messaging *Messaging) AddTransactionReceiver(id types.TransactionID, receiver chan Message) {
+	messaging.mutex.Lock()
+	defer messaging.mutex.Unlock()
+
 	messaging.TransactionReceivers[id] = receiver
 }
 
 func (messaging *Messaging) RemoveTransactionReceiver(id types.TransactionID) {
+	messaging.mutex.Lock()
+	defer messaging.mutex.Unlock()
+
 	delete(messaging.TransactionReceivers, id)
 }
 
@@ -67,6 +75,7 @@ func (messaging *Messaging) handleReceivedMessages() {
 		n, remoteAddr, _ := messaging.serverConnection.ReadFrom(buffer[:])
 		json.Unmarshal(buffer[:n], &message)
 
+		log.Printf("Received message %s", message.String())
 		log.Printf("Remember node with id %s by remoteAddr %s", message.FromId.String(), remoteAddr)
 
 		messaging.mapping[message.FromId] = remoteAddr
@@ -175,5 +184,6 @@ func NewMessaging() *Messaging {
 		mapping:              make(map[types.NodeID]net.Addr),
 		TransactionReceivers: make(map[types.TransactionID]chan Message),
 		MessagesToSend:       make(chan Message),
+		mutex:                &sync.Mutex{},
 	}
 }
