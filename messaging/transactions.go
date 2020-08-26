@@ -6,18 +6,32 @@ type Transaction struct {
 	messasing *Messaging
 	id        types.TransactionID
 
-	Receiver       chan Message
-	MessagesToSend chan Message
+	receiver       chan Message
+	messagesToSend chan Message
 }
 
 func (messaging *Messaging) NewTransaction() *Transaction {
 	transaction := &Transaction{messasing: messaging,
 		id: types.NewTransactionID(),
 
-		Receiver:       make(chan Message),
-		MessagesToSend: messaging.messagesToSend,
+		receiver:       make(chan Message),
+		messagesToSend: messaging.messagesToSend,
 	}
+	messaging.AddTransactionReceiver(transaction.id, transaction.receiver)
 	return transaction
+}
+
+func (transaction *Transaction) Close() {
+	transaction.messasing.RemoveTransactionReceiver(transaction.id)
+}
+
+func (transaction *Transaction) SendMessage(message Message) {
+	message.TransactionID = &transaction.id
+	transaction.messagesToSend <- message
+}
+
+func (transaction *Transaction) Receiver() chan Message {
+	return transaction.receiver
 }
 
 func (messaging *Messaging) AddTransactionReceiver(id types.TransactionID, receiver chan Message) {

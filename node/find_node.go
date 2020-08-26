@@ -45,24 +45,20 @@ func (node *Node) FindNode(targetNodeID types.NodeID) []types.NodeID {
 
 			queried++
 			go func(j int) {
-				transactionID := types.NewTransactionID()
-				transactionReceiver := make(chan messaging.Message)
+				transaction := node.messaging.NewTransaction()
+				defer transaction.Close()
 
 				message := messaging.Message{FromId: node.id,
-					ToId:          nodesAndDistances[j].ID,
-					Action:        "find_node",
-					Ids:           []types.NodeID{targetNodeID},
-					TransactionID: &transactionID,
+					ToId:   nodesAndDistances[j].ID,
+					Action: "find_node",
+					Ids:    []types.NodeID{targetNodeID},
 				}
 
-				node.messaging.AddTransactionReceiver(transactionID, transactionReceiver)
-				defer node.messaging.RemoveTransactionReceiver(transactionID)
-
 				fmt.Printf("Asking %s\n", nodesAndDistances[j].ID.String())
-				node.messaging.SendMessage(message)
+				transaction.SendMessage(message)
 
 				select {
-				case response := <-transactionReceiver:
+				case response := <-transaction.Receiver():
 					receivedNodeID <- response
 
 				case <-time.After(3 * time.Second):
