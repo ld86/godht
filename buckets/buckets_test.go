@@ -49,7 +49,7 @@ func TestDistance(t *testing.T) {
 			b := node.NewNodeWithId(manualId, []string{})
 
 			distance := buckets.Distance(a.Id(), b.Id())
-			nodesAndDistances = append(nodesAndDistances, buckets.NodeAndDistance{Id: b.Id(), Distance: distance})
+			nodesAndDistances = append(nodesAndDistances, buckets.NodeAndDistance{ID: b.Id(), Distance: distance})
 		}
 	}
 	sort.Sort(nodesAndDistances)

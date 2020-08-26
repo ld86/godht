@@ -1,7 +1,6 @@
 package messaging
 
 import (
-	"encoding/json"
 	"fmt"
 	"log"
 	"net"
@@ -37,6 +36,19 @@ type Messaging struct {
 	MessagesToSend       chan Message
 }
 
+type Transaction struct {
+}
+
+func NewMessaging() *Messaging {
+	serverConnection := createPacketConn()
+	return &Messaging{serverConnection: serverConnection,
+		mapping:              make(map[types.NodeID]net.Addr),
+		mutex:                &sync.Mutex{},
+		MessagesToSend:       make(chan Message),
+		TransactionReceivers: make(map[types.TransactionID]chan Message),
+	}
+}
+
 func (message *Message) String() string {
 	return fmt.Sprintf("%s<-%s %s", message.ToId.String(), message.FromId.String(), message.Action)
 }
@@ -49,100 +61,9 @@ func (messaging *Messaging) SetDefaultReceiver(receiver chan Message) {
 	messaging.DefaultReceiver = receiver
 }
 
-func (messaging *Messaging) AddTransactionReceiver(id types.TransactionID, receiver chan Message) {
-	messaging.mutex.Lock()
-	defer messaging.mutex.Unlock()
-
-	messaging.TransactionReceivers[id] = receiver
-}
-
-func (messaging *Messaging) RemoveTransactionReceiver(id types.TransactionID) {
-	messaging.mutex.Lock()
-	defer messaging.mutex.Unlock()
-
-	delete(messaging.TransactionReceivers, id)
-}
-
 func (messaging *Messaging) Serve() {
 	go messaging.handleReceivedMessages()
 	messaging.handleSentMessages()
-}
-
-func (messaging *Messaging) handleReceivedMessages() {
-	for {
-		var buffer [2048]byte
-		var message Message
-		n, remoteAddr, _ := messaging.serverConnection.ReadFrom(buffer[:])
-		json.Unmarshal(buffer[:n], &message)
-
-		log.Printf("Received message %s", message.String())
-		log.Printf("Remember node with id %s by remoteAddr %s", message.FromId.String(), remoteAddr)
-
-		messaging.mapping[message.FromId] = remoteAddr
-		for _, idAddr := range message.IdToAddrMapping {
-			log.Printf("Remember node with id %s by remoteAddr %s", idAddr.Id.String(), idAddr.Addr)
-			messaging.mapping[idAddr.Id], _ = net.ResolveUDPAddr("udp", idAddr.Addr)
-		}
-
-		if message.TransactionID == nil {
-			if messaging.DefaultReceiver != nil {
-				messaging.DefaultReceiver <- message
-			}
-		} else {
-			channel, found := messaging.TransactionReceivers[*message.TransactionID]
-			if !found {
-				channel = messaging.DefaultReceiver
-			}
-			if channel != nil {
-				channel <- message
-			}
-		}
-	}
-}
-
-func (messaging *Messaging) handleSentMessages() {
-	for {
-		select {
-		case outputMessage := <-messaging.MessagesToSend:
-			if outputMessage.FromId == outputMessage.ToId {
-				log.Printf("Drop message to yourself")
-				continue
-			}
-			var remoteAddr net.Addr
-
-			if outputMessage.IpAddr == nil {
-				var ok bool
-				remoteAddr, ok = messaging.mapping[outputMessage.ToId]
-				if !ok {
-					log.Printf("Cannot find remote addr for node with id %s, skipping message", outputMessage.ToId)
-					continue
-				}
-				log.Printf("Found remoteAddr %s by id %s", remoteAddr, outputMessage.ToId.String())
-			} else {
-				var err error
-				remoteAddr, err = net.ResolveUDPAddr("udp", *outputMessage.IpAddr)
-				if err != nil {
-					log.Printf("Cannot resolve %s, %s", *outputMessage.IpAddr, err)
-					continue
-				}
-				log.Printf("Resolved remoteAddr %s", *outputMessage.IpAddr)
-			}
-
-			outputMessage.IdToAddrMapping = make([]IdAddr, 0)
-			for _, nodeID := range outputMessage.Ids {
-				nodeAddr, ok := messaging.mapping[nodeID]
-				if !ok {
-					continue
-				}
-				outputMessage.IdToAddrMapping = append(outputMessage.IdToAddrMapping,
-					IdAddr{nodeID, nodeAddr.String()})
-			}
-
-			log.Printf("Trying to send message %s", outputMessage.String())
-			data, _ := json.Marshal(outputMessage)
-			messaging.serverConnection.WriteTo(data, remoteAddr)
-		}
-	}
 }
 
 func createPacketConn() net.PacketConn {
@@ -176,14 +97,4 @@ func createPacketConn() net.PacketConn {
 	}
 
 	return conn
-}
-
-func NewMessaging() *Messaging {
-	serverConnection := createPacketConn()
-	return &Messaging{serverConnection: serverConnection,
-		mapping:              make(map[types.NodeID]net.Addr),
-		TransactionReceivers: make(map[types.TransactionID]chan Message),
-		MessagesToSend:       make(chan Message),
-		mutex:                &sync.Mutex{},
-	}
 }
