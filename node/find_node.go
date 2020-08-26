@@ -59,7 +59,7 @@ func (node *Node) FindNode(targetNodeID types.NodeID) []types.NodeID {
 				defer node.messaging.RemoveTransactionReceiver(transactionID)
 
 				fmt.Printf("Asking %s\n", nodesAndDistances[j].ID.String())
-				node.messaging.MessagesToSend <- message
+				node.messaging.SendMessage(message)
 
 				select {
 				case response := <-transactionReceiver:

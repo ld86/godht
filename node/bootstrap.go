@@ -25,7 +25,7 @@ func (node *Node) doBootstrap() {
 			Ids:           []types.NodeID{node.id},
 			TransactionID: &transactionID,
 		}
-		node.messaging.MessagesToSend <- message
+		node.messaging.SendMessage(message)
 
 		select {
 		case response := <-transactionReceiver:

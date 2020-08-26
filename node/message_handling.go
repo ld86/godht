@@ -12,7 +12,7 @@ func (node *Node) DispatchMessage(message *messaging.Message) {
 	switch message.Action {
 	case "ping":
 		outputMessage := messaging.Message{FromId: node.id, ToId: message.FromId, Action: "pong"}
-		node.messaging.MessagesToSend <- outputMessage
+		node.messaging.SendMessage(outputMessage)
 	case "pong":
 		waitingTicket, found := node.waiting[message.FromId]
 		if found {
@@ -33,7 +33,7 @@ func (node *Node) DispatchMessage(message *messaging.Message) {
 			TransactionID: message.TransactionID,
 		}
 
-		node.messaging.MessagesToSend <- outputMessage
+		node.messaging.SendMessage(outputMessage)
 	case "find_node_result":
 		for _, nodeId := range message.Ids {
 			node.addNodeToBuckets(nodeId)

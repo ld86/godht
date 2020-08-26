@@ -9,7 +9,7 @@ import (
 func (messaging *Messaging) handleSentMessages() {
 	for {
 		select {
-		case outputMessage := <-messaging.MessagesToSend:
+		case outputMessage := <-messaging.messagesToSend:
 			if outputMessage.FromId == outputMessage.ToId {
 				log.Printf("Drop message to yourself")
 				continue

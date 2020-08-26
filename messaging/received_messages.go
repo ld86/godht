@@ -23,13 +23,13 @@ func (messaging *Messaging) handleReceivedMessages() {
 		}
 
 		if message.TransactionID == nil {
-			if messaging.DefaultReceiver != nil {
-				messaging.DefaultReceiver <- message
+			if messaging.Receiver() != nil {
+				messaging.Receiver() <- message
 			}
 		} else {
-			channel, found := messaging.TransactionReceivers[*message.TransactionID]
+			channel, found := messaging.GetTransactionReceiver(*message.TransactionID)
 			if !found {
-				channel = messaging.DefaultReceiver
+				channel = messaging.Receiver()
 			}
 			if channel != nil {
 				channel <- message

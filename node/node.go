@@ -81,7 +81,7 @@ func (node *Node) pingOldNodes() {
 					Action: "find_node",
 					Ids:    []types.NodeID{node.id},
 				}
-				node.messaging.MessagesToSend <- message
+				node.messaging.SendMessage(message)
 
 			}
 		}
@@ -96,11 +96,11 @@ func (node *Node) Serve() {
 	go node.doBootstrap()
 	go node.pingOldNodes()
 
-	node.messaging.SetDefaultReceiver(node.defaultReceiver)
+	node.messaging.SetReceiver(node.defaultReceiver)
 
 	for {
 		select {
-		case message := <-node.defaultReceiver:
+		case message := <-node.messaging.Receiver():
 			node.DispatchMessage(&message)
 		}
 	}
@@ -134,7 +134,7 @@ func (node *Node) addNodeToBuckets(fromId types.NodeID) {
 		}
 
 		pingMessage := messaging.Message{FromId: node.id, ToId: returnedNodeId, Action: "ping"}
-		node.messaging.MessagesToSend <- pingMessage
+		node.messaging.SendMessage(pingMessage)
 
 		log.Printf("Waiting 5 seconds for %v", returnedNodeId)
 		time.Sleep(5 * time.Second)

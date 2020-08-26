@@ -29,14 +29,12 @@ type Message struct {
 type Messaging struct {
 	serverConnection net.PacketConn
 	mapping          map[types.NodeID]net.Addr
-	mutex            *sync.Mutex
 
-	DefaultReceiver      chan Message
-	TransactionReceivers map[types.TransactionID]chan Message
-	MessagesToSend       chan Message
-}
+	mutex                *sync.Mutex
+	transactionReceivers map[types.TransactionID]chan Message
 
-type Transaction struct {
+	receiver       chan Message
+	messagesToSend chan Message
 }
 
 func NewMessaging() *Messaging {
@@ -44,9 +42,17 @@ func NewMessaging() *Messaging {
 	return &Messaging{serverConnection: serverConnection,
 		mapping:              make(map[types.NodeID]net.Addr),
 		mutex:                &sync.Mutex{},
-		MessagesToSend:       make(chan Message),
-		TransactionReceivers: make(map[types.TransactionID]chan Message),
+		messagesToSend:       make(chan Message),
+		transactionReceivers: make(map[types.TransactionID]chan Message),
 	}
+}
+
+func (messaging *Messaging) SendMessage(message Message) {
+	messaging.messagesToSend <- message
+}
+
+func (messaging *Messaging) Receiver() chan Message {
+	return messaging.receiver
 }
 
 func (message *Message) String() string {
@@ -57,8 +63,8 @@ func (messaging *Messaging) GetLocalAddr() string {
 	return messaging.serverConnection.LocalAddr().String()
 }
 
-func (messaging *Messaging) SetDefaultReceiver(receiver chan Message) {
-	messaging.DefaultReceiver = receiver
+func (messaging *Messaging) SetReceiver(receiver chan Message) {
+	messaging.receiver = receiver
 }
 
 func (messaging *Messaging) Serve() {
