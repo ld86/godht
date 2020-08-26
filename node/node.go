@@ -93,6 +93,7 @@ func (node *Node) doBootstrap() {
 
 		select {
 		case response := <-transactionReceiver:
+			node.addNodeToBuckets(response.FromId)
 			for _, nodeID := range response.Ids {
 				if nodeID == node.id {
 					continue
@@ -118,13 +119,14 @@ func (node *Node) pingOldNodes() {
 			if bucket.Len() > 0 {
 				message := messaging.Message{FromId: node.id,
 					ToId:   bucket.Front().Value.(types.NodeID),
-					Action: "ping",
+					Action: "find_node",
+					Ids:    []types.NodeID{node.id},
 				}
 				node.messaging.MessagesToSend <- message
 
 			}
 		}
-		time.Sleep(60 * time.Second)
+		time.Sleep(5 * time.Second)
 	}
 }
 
@@ -133,7 +135,7 @@ func (node *Node) Serve() {
 	go node.buckets.Serve()
 
 	go node.doBootstrap()
-	// go node.pingOldNodes()
+	go node.pingOldNodes()
 
 	node.messaging.SetDefaultReceiver(node.defaultReceiver)
 
@@ -314,7 +316,7 @@ func (node *Node) DispatchMessage(message *messaging.Message) {
 		}
 
 		targetId := message.Ids[0]
-		nearestIds := node.buckets.GetNearestIds(node.id, targetId, 3)
+		nearestIds := node.buckets.GetNearestIds(node.id, targetId, 5)
 		fmt.Println(message.TransactionID)
 		outputMessage := messaging.Message{FromId: node.id,
 			ToId:          message.FromId,
