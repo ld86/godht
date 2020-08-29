@@ -11,6 +11,7 @@ import (
 
 	"github.com/ld86/godht/buckets"
 	"github.com/ld86/godht/messaging"
+	"github.com/ld86/godht/storage"
 	"github.com/ld86/godht/types"
 )
 
@@ -27,6 +28,7 @@ type Node struct {
 
 	buckets   *buckets.Buckets
 	messaging *messaging.Messaging
+	storage   *storage.Storage
 
 	defaultReceiver chan messaging.Message
 
@@ -39,6 +41,7 @@ func NewNodeWithId(id types.NodeID, bootstrap []string) *Node {
 		bootstrap:       bootstrap,
 		buckets:         buckets.NewBuckets(BucketSize),
 		messaging:       messaging.NewMessaging(),
+		storage:         storage.NewStorage(),
 		defaultReceiver: make(chan messaging.Message),
 		waiting:         make(map[types.NodeID]*WaitingTicket)}
 }
