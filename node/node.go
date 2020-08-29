@@ -91,6 +91,7 @@ func (node *Node) pingNodes() {
 
 				select {
 				case _ = <-transaction.Receiver():
+					break
 				case <-time.After(3 * time.Second):
 					node.buckets.RemoveNode(node.id, remoteID)
 				}
