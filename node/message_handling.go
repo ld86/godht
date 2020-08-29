@@ -8,6 +8,10 @@ func (node *Node) DispatchMessage(message *messaging.Message) {
 	node.addNodeToBuckets(message.FromId)
 
 	switch message.Action {
+	case "store_value":
+		key := message.Ids[0]
+		value := message.Payload
+		node.storage.SetKey(key[:], value)
 	case "ping":
 		outputMessage := messaging.Message{FromId: node.id,
 			ToId:          message.FromId,

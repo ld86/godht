@@ -2,7 +2,6 @@ package main
 
 import (
 	crypto_rand "crypto/rand"
-	"crypto/sha1"
 	"encoding/binary"
 	"flag"
 	"fmt"
@@ -15,6 +14,7 @@ import (
 
 	"github.com/ld86/godht/node"
 	"github.com/ld86/godht/types"
+	"github.com/ld86/godht/utils"
 
 	prompt "github.com/c-bata/go-prompt"
 )
@@ -67,18 +67,25 @@ func executor(line string) {
 		if len(fields) < 2 {
 			return
 		}
-		key := fields[1]
-		h := sha1.New()
-		h.Write([]byte(key))
-		keyHash := h.Sum(nil)
-		keyID := types.NodeID{}
-
-		copy(keyID[:], keyHash[:])
+		keyID := utils.HashStringToNodeID(fields[1])
 		nearestNodes := mainNode.FindNode(keyID)
 
 		fmt.Println("Nearest nodes")
 		for _, nodeID := range nearestNodes {
 			fmt.Println(nodeID.String())
+		}
+	case "store":
+		if len(fields) < 3 {
+			return
+		}
+
+		key := []byte(fields[1])
+		value := []byte(fields[2])
+
+		err := mainNode.StoreValue(key, value)
+
+		if err != nil {
+			fmt.Println(err)
 		}
 
 	case "buckets":

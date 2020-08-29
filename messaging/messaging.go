@@ -24,6 +24,7 @@ type Message struct {
 	IdToAddrMapping []IdAddr
 	IpAddr          *string
 	TransactionID   *types.TransactionID
+	Payload         []byte
 }
 
 type Messaging struct {
