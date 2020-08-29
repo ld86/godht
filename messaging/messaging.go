@@ -29,9 +29,11 @@ type Message struct {
 
 type Messaging struct {
 	serverConnection net.PacketConn
-	mapping          map[types.NodeID]net.Addr
 
-	mutex                *sync.Mutex
+	mappingMutex *sync.Mutex
+	mapping      map[types.NodeID]net.Addr
+
+	transactionMutex     *sync.Mutex
 	transactionReceivers map[types.TransactionID]chan Message
 
 	receiver       chan Message
@@ -41,8 +43,9 @@ type Messaging struct {
 func NewMessaging() *Messaging {
 	serverConnection := createPacketConn()
 	return &Messaging{serverConnection: serverConnection,
+		mappingMutex:         &sync.Mutex{},
 		mapping:              make(map[types.NodeID]net.Addr),
-		mutex:                &sync.Mutex{},
+		transactionMutex:     &sync.Mutex{},
 		messagesToSend:       make(chan Message, 100),
 		transactionReceivers: make(map[types.TransactionID]chan Message),
 	}
