@@ -16,18 +16,14 @@ func (messaging *Messaging) handleReceivedMessages() {
 		log.Printf("Received message %s", message.String())
 		log.Printf("Remember node with id %s by remoteAddr %s", message.FromId.String(), remoteAddr)
 
-		{
-			messaging.mappingMutex.Lock()
-			defer messaging.mappingMutex.Unlock()
-
-			messaging.mapping[message.FromId] = remoteAddr
-			for _, idAddr := range message.IdToAddrMapping {
-				if _, found := messaging.mapping[idAddr.Id]; found {
-					continue
-				}
-				log.Printf("Remember node with id %s by remoteAddr %s", idAddr.Id.String(), idAddr.Addr)
-				messaging.mapping[idAddr.Id], _ = net.ResolveUDPAddr("udp", idAddr.Addr)
+		messaging.mapping.Store(message.FromId, remoteAddr)
+		for _, idAddr := range message.IdToAddrMapping {
+			if _, found := messaging.mapping.Load(idAddr.Id); found {
+				continue
 			}
+			log.Printf("Remember node with id %s by remoteAddr %s", idAddr.Id.String(), idAddr.Addr)
+			resolvedIPAddr, _ := net.ResolveUDPAddr("udp", idAddr.Addr)
+			messaging.mapping.Store(idAddr.Id, resolvedIPAddr)
 		}
 
 		if message.TransactionID == nil {

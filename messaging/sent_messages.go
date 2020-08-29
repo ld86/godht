@@ -18,13 +18,12 @@ func (messaging *Messaging) handleSentMessages() {
 
 			if outputMessage.IpAddr == nil {
 				var ok bool
-				messaging.mappingMutex.Lock()
-				remoteAddr, ok = messaging.mapping[outputMessage.ToId]
-				messaging.mappingMutex.Unlock()
+				remoteAddrFromMap, ok := messaging.mapping.Load(outputMessage.ToId)
 				if !ok {
 					log.Printf("Cannot find remote addr for node with id %s, skipping message", outputMessage.ToId)
 					continue
 				}
+				remoteAddr = remoteAddrFromMap.(net.Addr)
 				log.Printf("Found remoteAddr %s by id %s", remoteAddr, outputMessage.ToId.String())
 			} else {
 				var err error
@@ -36,18 +35,14 @@ func (messaging *Messaging) handleSentMessages() {
 				log.Printf("Resolved remoteAddr %s", *outputMessage.IpAddr)
 			}
 
-			{
-				messaging.mappingMutex.Lock()
-				defer messaging.mappingMutex.Unlock()
-				outputMessage.IdToAddrMapping = make([]IdAddr, 0)
-				for _, nodeID := range outputMessage.Ids {
-					nodeAddr, ok := messaging.mapping[nodeID]
-					if !ok {
-						continue
-					}
-					outputMessage.IdToAddrMapping = append(outputMessage.IdToAddrMapping,
-						IdAddr{nodeID, nodeAddr.String()})
+			outputMessage.IdToAddrMapping = make([]IdAddr, 0)
+			for _, nodeID := range outputMessage.Ids {
+				nodeAddrFromMap, ok := messaging.mapping.Load(nodeID)
+				if !ok {
+					continue
 				}
+				outputMessage.IdToAddrMapping = append(outputMessage.IdToAddrMapping,
+					IdAddr{nodeID, nodeAddrFromMap.(net.Addr).String()})
 			}
 
 			log.Printf("Trying to send message %s", outputMessage.String())

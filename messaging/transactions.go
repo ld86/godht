@@ -35,23 +35,20 @@ func (transaction *Transaction) Receiver() chan Message {
 }
 
 func (messaging *Messaging) AddTransactionReceiver(id types.TransactionID, receiver chan Message) {
-	messaging.transactionMutex.Lock()
-	defer messaging.transactionMutex.Unlock()
-
-	messaging.transactionReceivers[id] = receiver
+	messaging.transactionReceivers.Store(id, receiver)
 }
 
 func (messaging *Messaging) GetTransactionReceiver(id types.TransactionID) (chan Message, bool) {
-	messaging.transactionMutex.Lock()
-	defer messaging.transactionMutex.Unlock()
-
-	message, found := messaging.transactionReceivers[id]
-	return message, found
+	var result chan Message
+	message, found := messaging.transactionReceivers.Load(id)
+	if !found {
+		result = nil
+	} else {
+		result = message.(chan Message)
+	}
+	return result, found
 }
 
 func (messaging *Messaging) RemoveTransactionReceiver(id types.TransactionID) {
-	messaging.transactionMutex.Lock()
-	defer messaging.transactionMutex.Unlock()
-
-	delete(messaging.transactionReceivers, id)
+	messaging.transactionReceivers.Delete(id)
 }
