@@ -14,7 +14,7 @@ func (messaging *Messaging) NewTransaction() *Transaction {
 	transaction := &Transaction{messasing: messaging,
 		id: types.NewTransactionID(),
 
-		receiver:       make(chan Message),
+		receiver:       make(chan Message, 100),
 		messagesToSend: messaging.messagesToSend,
 	}
 	messaging.AddTransactionReceiver(transaction.id, transaction.receiver)

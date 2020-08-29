@@ -43,7 +43,7 @@ func NewMessaging() *Messaging {
 	return &Messaging{serverConnection: serverConnection,
 		mapping:              make(map[types.NodeID]net.Addr),
 		mutex:                &sync.Mutex{},
-		messagesToSend:       make(chan Message),
+		messagesToSend:       make(chan Message, 100),
 		transactionReceivers: make(map[types.TransactionID]chan Message),
 	}
 }
@@ -61,7 +61,7 @@ func (message *Message) String() string {
 	if message.TransactionID != nil {
 		strTransactionID = message.TransactionID.String()
 	}
-	return fmt.Sprintf("%s<-%s %s %s", message.ToId.String(), message.FromId.String(), message.Action, strTransactionID)
+	return fmt.Sprintf("%s<-%s %s %s %s", message.ToId.String(), message.FromId.String(), message.Action, strTransactionID, message.Payload)
 }
 
 func (messaging *Messaging) GetLocalAddr() string {

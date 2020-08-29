@@ -42,7 +42,7 @@ func NewNodeWithId(id types.NodeID, bootstrap []string) *Node {
 		buckets:         buckets.NewBuckets(BucketSize),
 		messaging:       messaging.NewMessaging(),
 		storage:         storage.NewStorage(),
-		defaultReceiver: make(chan messaging.Message),
+		defaultReceiver: make(chan messaging.Message, 100),
 		waiting:         make(map[types.NodeID]*WaitingTicket)}
 }
 
