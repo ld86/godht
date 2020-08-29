@@ -9,7 +9,11 @@ func (node *Node) DispatchMessage(message *messaging.Message) {
 
 	switch message.Action {
 	case "ping":
-		outputMessage := messaging.Message{FromId: node.id, ToId: message.FromId, Action: "pong"}
+		outputMessage := messaging.Message{FromId: node.id,
+			ToId:          message.FromId,
+			Action:        "pong",
+			TransactionID: message.TransactionID,
+		}
 		node.messaging.SendMessage(outputMessage)
 	case "pong":
 		waitingTicket, found := node.waiting[message.FromId]

@@ -56,7 +56,11 @@ func (messaging *Messaging) Receiver() chan Message {
 }
 
 func (message *Message) String() string {
-	return fmt.Sprintf("%s<-%s %s", message.ToId.String(), message.FromId.String(), message.Action)
+	strTransactionID := "nil"
+	if message.TransactionID != nil {
+		strTransactionID = message.TransactionID.String()
+	}
+	return fmt.Sprintf("%s<-%s %s %s", message.ToId.String(), message.FromId.String(), message.Action, strTransactionID)
 }
 
 func (messaging *Messaging) GetLocalAddr() string {

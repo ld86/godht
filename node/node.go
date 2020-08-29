@@ -91,8 +91,10 @@ func (node *Node) pingNodes() {
 
 				select {
 				case _ = <-transaction.Receiver():
+					log.Printf("Save %s in buckets\n", remoteID.String())
 					break
 				case <-time.After(3 * time.Second):
+					log.Printf("Remove %s from buckets\n", remoteID.String())
 					node.buckets.RemoveNode(node.id, remoteID)
 				}
 
