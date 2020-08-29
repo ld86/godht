@@ -97,7 +97,9 @@ func executor(line string) {
 
 		value := mainNode.RetrieveValue(key)
 
-		fmt.Println(value)
+		if value != nil {
+			fmt.Println(string(value))
+		}
 
 	case "buckets":
 		for k, v := range mainNode.Buckets().GetSizes() {

@@ -128,6 +128,7 @@ func (node *Node) discoverNodes() {
 func (node *Node) Serve() {
 	go node.messaging.Serve()
 	go node.buckets.Serve()
+	go node.storage.Serve()
 
 	go node.doBootstrap()
 	go node.discoverNodes()
