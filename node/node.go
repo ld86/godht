@@ -71,7 +71,37 @@ func (node *Node) Buckets() *buckets.Buckets {
 	return node.buckets
 }
 
-func (node *Node) pingOldNodes() {
+func (node *Node) pingNodes() {
+	for {
+		for i := 0; i < 160; i++ {
+			bucket := node.buckets.GetBucket(i)
+
+			if bucket.Len() > 0 {
+				transaction := node.messaging.NewTransaction()
+				defer transaction.Close()
+
+				remoteID := bucket.Front().Value.(types.NodeID)
+
+				message := messaging.Message{FromId: node.id,
+					ToId:   remoteID,
+					Action: "ping",
+					Ids:    []types.NodeID{node.id},
+				}
+				transaction.SendMessage(message)
+
+				select {
+				case _ = <-transaction.Receiver():
+				case <-time.After(3 * time.Second):
+					node.buckets.RemoveNode(node.id, remoteID)
+				}
+
+			}
+		}
+		time.Sleep(5 * time.Second)
+	}
+}
+
+func (node *Node) discoverNodes() {
 	for {
 		for i := 0; i < 160; i++ {
 			bucket := node.buckets.GetBucket(i)
@@ -85,7 +115,7 @@ func (node *Node) pingOldNodes() {
 
 			}
 		}
-		time.Sleep(5 * time.Second)
+		time.Sleep(120 * time.Second)
 	}
 }
 
@@ -94,7 +124,8 @@ func (node *Node) Serve() {
 	go node.buckets.Serve()
 
 	go node.doBootstrap()
-	go node.pingOldNodes()
+	go node.discoverNodes()
+	go node.pingNodes()
 
 	node.messaging.SetReceiver(node.defaultReceiver)
 

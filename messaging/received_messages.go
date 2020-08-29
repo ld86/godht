@@ -18,6 +18,9 @@ func (messaging *Messaging) handleReceivedMessages() {
 
 		messaging.mapping[message.FromId] = remoteAddr
 		for _, idAddr := range message.IdToAddrMapping {
+			if _, found := messaging.mapping[idAddr.Id]; found {
+				continue
+			}
 			log.Printf("Remember node with id %s by remoteAddr %s", idAddr.Id.String(), idAddr.Addr)
 			messaging.mapping[idAddr.Id], _ = net.ResolveUDPAddr("udp", idAddr.Addr)
 		}
