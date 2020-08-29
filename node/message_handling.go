@@ -11,8 +11,7 @@ func (node *Node) DispatchMessage(message *messaging.Message) {
 	case "store_value":
 		key := message.Ids[0]
 		value := message.Payload
-		go node.storage.SetKey(key[:], value)
-
+		node.storage.SetKey(key[:], value)
 	case "ping":
 		outputMessage := messaging.Message{FromId: node.id,
 			ToId:          message.FromId,
