@@ -40,6 +40,34 @@ func (node *Node) DispatchMessage(message *messaging.Message) {
 		}
 
 		node.messaging.SendMessage(outputMessage)
+
+	case "retrieve_value":
+		if len(message.Ids) == 0 {
+			return
+		}
+
+		keyID := message.Ids[0]
+		value, err := node.storage.GetKey(keyID[:])
+
+		if err == nil {
+			outputMessage := messaging.Message{FromId: node.id,
+				ToId:          message.FromId,
+				Action:        "retrieve_value_results",
+				TransactionID: message.TransactionID,
+				Payload:       value,
+			}
+			node.messaging.SendMessage(outputMessage)
+		} else {
+			nearestIds := node.buckets.GetNearestIds(node.id, keyID, 5)
+			outputMessage := messaging.Message{FromId: node.id,
+				ToId:          message.FromId,
+				Action:        "retrieve_value_results",
+				Ids:           nearestIds,
+				TransactionID: message.TransactionID,
+			}
+			node.messaging.SendMessage(outputMessage)
+		}
+
 	case "find_node_result":
 		for _, nodeID := range message.Ids {
 			node.addNodeToBuckets(nodeID)

@@ -88,6 +88,17 @@ func executor(line string) {
 			fmt.Println(err)
 		}
 
+	case "retrieve":
+		if len(fields) < 2 {
+			return
+		}
+
+		key := []byte(fields[1])
+
+		value := mainNode.RetrieveValue(key)
+
+		fmt.Println(value)
+
 	case "buckets":
 		for k, v := range mainNode.Buckets().GetSizes() {
 			fmt.Printf("%d %d\n", k, v)
