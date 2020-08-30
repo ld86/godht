@@ -79,3 +79,59 @@ func TestGetOnly(t *testing.T) {
 	}
 
 }
+
+func TestOldestElement(t *testing.T) {
+	storage := storage.NewStorage()
+	go storage.Serve()
+
+	keyA := types.NewNodeID()
+	keyB := types.NewNodeID()
+
+	_, _, err := storage.OldestElement()
+	if err == nil {
+		t.Error("Oldest element of empty storage should not be found")
+	}
+
+	err = storage.SetKey(keyA, []byte("1"))
+	if err != nil {
+		t.Error(err)
+	}
+
+	oldestKey, oldestValue, err := storage.OldestElement()
+	if err != nil {
+		t.Error(err)
+	}
+
+	if oldestKey != keyA || string(oldestValue) != "1" {
+		t.Error("Wrong oldest value")
+	}
+
+	err = storage.SetKey(keyB, []byte("2"))
+	if err != nil {
+		t.Error(err)
+	}
+
+	oldestKey, oldestValue, err = storage.OldestElement()
+	if err != nil {
+		t.Error(err)
+	}
+
+	if oldestKey != keyA || string(oldestValue) != "1" {
+		t.Error("Wrong oldest value")
+	}
+
+	err = storage.SetKey(keyA, []byte("3"))
+	if err != nil {
+		t.Error(err)
+	}
+
+	oldestKey, oldestValue, err = storage.OldestElement()
+	if err != nil {
+		t.Error(err)
+	}
+
+	if oldestKey != keyB || string(oldestValue) != "2" {
+		t.Error("Wrong oldest value")
+	}
+
+}
