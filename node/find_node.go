@@ -75,13 +75,13 @@ func (node *Node) FindNode(targetNodeID types.NodeID) []types.NodeID {
 			case response := <-receivedNodeID:
 				found = true
 				gotResponse[response.FromId] = true
+				node.addNodeToBuckets(response.FromId)
 
 				for _, nodeID := range response.Ids {
 					if nodeID == node.id {
 						continue
 					}
 
-					node.addNodeToBuckets(nodeID)
 					_, f := alreadyQueried[nodeID]
 					if !f {
 						log.Printf("Added %s\n", nodeID.String())

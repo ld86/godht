@@ -81,13 +81,13 @@ func (node *Node) RetrieveValue(key types.NodeID) []byte {
 				if response.Payload != nil {
 					value = append([]byte{}, response.Payload...)
 				} else {
+					node.addNodeToBuckets(response.FromId)
 					for _, nodeID := range response.Ids {
 						if nodeID == node.id {
 							continue
 						}
 
 						found = true
-						node.addNodeToBuckets(nodeID)
 						_, f := alreadyQueried[nodeID]
 						if !f {
 							log.Printf("Added %s\n", nodeID.String())
