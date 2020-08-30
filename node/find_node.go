@@ -1,7 +1,6 @@
 package node
 
 import (
-	"fmt"
 	"log"
 	"time"
 
@@ -22,9 +21,9 @@ func (node *Node) FindNode(targetNodeID types.NodeID) []types.NodeID {
 
 	foundNodes := make([]types.NodeID, 0)
 
-	fmt.Println("From buckets")
+	log.Println("From buckets")
 	for _, nearestID := range nearestIds {
-		fmt.Println(nearestID.String())
+		log.Println(nearestID.String())
 		alreadyQueried[nearestID] = false
 		nodesAndDistances.AddNode(nearestID)
 	}
@@ -38,7 +37,7 @@ func (node *Node) FindNode(targetNodeID types.NodeID) []types.NodeID {
 		queried := 0
 		for i := 0; i < nodesAndDistances.Len() && i < k; i++ {
 			candidateID := nodesAndDistances.GetID(i)
-			fmt.Printf("%s %v %v\n", candidateID.String(), alreadyQueried[candidateID], gotResponse[candidateID])
+			log.Printf("%s %v %v\n", candidateID.String(), alreadyQueried[candidateID], gotResponse[candidateID])
 
 			if alreadyQueried[candidateID] {
 				continue
@@ -57,7 +56,7 @@ func (node *Node) FindNode(targetNodeID types.NodeID) []types.NodeID {
 					Ids:    []types.NodeID{targetNodeID},
 				}
 
-				fmt.Printf("Asking %s\n", candidateID.String())
+				log.Printf("Asking %s\n", candidateID.String())
 				transaction.SendMessage(message)
 
 				select {
@@ -85,7 +84,7 @@ func (node *Node) FindNode(targetNodeID types.NodeID) []types.NodeID {
 					node.addNodeToBuckets(nodeID)
 					_, f := alreadyQueried[nodeID]
 					if !f {
-						fmt.Printf("Added %s\n", nodeID.String())
+						log.Printf("Added %s\n", nodeID.String())
 
 						alreadyQueried[nodeID] = false
 						nodesAndDistances.AddNode(nodeID)

@@ -34,6 +34,7 @@ func (lru *LRU) Store(k, v interface{}) bool {
 
 	if found {
 		lru.l.MoveToBack(listElement.(*list.Element))
+		listElement.(*list.Element).Value.(*LRUElement).Value = v
 		listElement.(*list.Element).Value.(*LRUElement).Time = time.Now()
 		return false
 	}
