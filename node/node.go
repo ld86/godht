@@ -114,17 +114,8 @@ func (node *Node) pingNodes() {
 
 func (node *Node) discoverNodes() {
 	for {
-		for i := 0; i < 160; i++ {
-			bucket := node.buckets.GetBucket(i)
-			if bucket.Len() > 0 {
-				message := messaging.Message{FromId: node.id,
-					ToId:   bucket.Front().Value.(types.NodeID),
-					Action: "find_node",
-					Ids:    []types.NodeID{node.id},
-				}
-				node.messaging.SendMessage(message)
-
-			}
+		for _, nodeID := range node.FindNode(node.id) {
+			node.addNodeToBuckets(nodeID)
 		}
 		time.Sleep(120 * time.Second)
 	}

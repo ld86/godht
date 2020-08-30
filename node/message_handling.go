@@ -68,8 +68,5 @@ func (node *Node) DispatchMessage(message *messaging.Message) {
 		}
 
 	case "find_node_result":
-		for _, nodeID := range message.Ids {
-			node.addNodeToBuckets(nodeID)
-		}
 	}
 }
