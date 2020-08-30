@@ -74,33 +74,38 @@ func (node *Node) Buckets() *buckets.Buckets {
 	return node.buckets
 }
 
+func (node *Node) checkNode(nodeID types.NodeID) {
+	transaction := node.messaging.NewTransaction()
+	defer transaction.Close()
+
+	message := messaging.Message{FromId: node.id,
+		ToId:   nodeID,
+		Action: "ping",
+		Ids:    []types.NodeID{node.id},
+	}
+	transaction.SendMessage(message)
+
+	select {
+	case _ = <-transaction.Receiver():
+		log.Printf("Save %s in buckets\n", nodeID.String())
+		break
+	case <-time.After(3 * time.Second):
+		log.Printf("Remove %s from buckets\n", nodeID.String())
+		node.buckets.RemoveNode(node.id, nodeID)
+	}
+
+}
+
 func (node *Node) pingNodes() {
 	for {
 		for i := 0; i < 160; i++ {
 			bucket := node.buckets.GetBucket(i)
-
 			if bucket.Len() > 0 {
-				transaction := node.messaging.NewTransaction()
-				defer transaction.Close()
 
-				remoteID := bucket.Front().Value.(types.NodeID)
-
-				message := messaging.Message{FromId: node.id,
-					ToId:   remoteID,
-					Action: "ping",
-					Ids:    []types.NodeID{node.id},
+				for it := bucket.Front(); it != nil; it = it.Next() {
+					remoteID := it.Value.(types.NodeID)
+					go node.checkNode(remoteID)
 				}
-				transaction.SendMessage(message)
-
-				select {
-				case _ = <-transaction.Receiver():
-					log.Printf("Save %s in buckets\n", remoteID.String())
-					break
-				case <-time.After(3 * time.Second):
-					log.Printf("Remove %s from buckets\n", remoteID.String())
-					node.buckets.RemoveNode(node.id, remoteID)
-				}
-
 			}
 		}
 		time.Sleep(5 * time.Second)
