@@ -89,3 +89,14 @@ func (lru *LRU) LastTouched() *LRUElement {
 
 	return lru.l.Back().Value.(*LRUElement)
 }
+
+func (lru *LRU) OldestElement() *LRUElement {
+	lru.mutex.Lock()
+	defer lru.mutex.Unlock()
+
+	if lru.l.Len() == 0 {
+		return nil
+	}
+
+	return lru.l.Front().Value.(*LRUElement)
+}

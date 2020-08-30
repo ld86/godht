@@ -8,6 +8,15 @@ import (
 
 type NodeID [20]byte
 
+func NewNodeID() NodeID {
+	var id NodeID
+	_, err := rand.Read(id[:])
+	if err != nil {
+		log.Panicf("rand.Read failed, %s", err)
+	}
+	return id
+}
+
 func (nodeID *NodeID) String() string {
 	return hex.EncodeToString(nodeID[:])
 }

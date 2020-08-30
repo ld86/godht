@@ -105,6 +105,16 @@ func TestTouch(t *testing.T) {
 		t.Error("Wrong last touched element")
 	}
 
+	oldestElement := lru.OldestElement()
+
+	if oldestElement == nil {
+		t.Error("LastTouched value of non-empty LRU should not be nil")
+	}
+
+	if oldestElement.Key.(string) != "1" || oldestElement.Value.(string) != "1" {
+		t.Error("Wrong oldest element")
+	}
+
 	touched = lru.Touch("1")
 	if !touched {
 		t.Error("Touched key presented")
@@ -118,6 +128,16 @@ func TestTouch(t *testing.T) {
 
 	if lastTouched.Key.(string) != "1" || lastTouched.Value.(string) != "1" {
 		t.Error("Wrong last touched element")
+	}
+
+	oldestElement = lru.OldestElement()
+
+	if oldestElement == nil {
+		t.Error("LastTouched value of non-empty LRU should not be nil")
+	}
+
+	if oldestElement.Key.(string) != "2" || oldestElement.Value.(string) != "2" {
+		t.Error("Wrong oldest element")
 	}
 
 }

@@ -12,15 +12,15 @@ func TestSimpleSetGet(t *testing.T) {
 	go storage.Serve()
 
 	for i := 0; i < 100; i++ {
-		key := types.NewTransactionID()
-		value := types.NewTransactionID()
+		key := types.NewNodeID()
+		value := types.NewNodeID()
 
-		err := storage.SetKey([]byte(key.String()), []byte(value.String()))
+		err := storage.SetKey(key, []byte(value.String()))
 		if err != nil {
 			t.Error(err)
 		}
 
-		retrievedValue, err := storage.GetKey([]byte(key.String()))
+		retrievedValue, err := storage.GetKey(key)
 
 		if err != nil {
 			t.Error(err)
@@ -36,14 +36,14 @@ func TestSetSame(t *testing.T) {
 	storage := storage.NewStorage()
 	go storage.Serve()
 
-	key := types.NewTransactionID()
+	key := types.NewNodeID()
 
-	err := storage.SetKey([]byte(key.String()), []byte("1"))
+	err := storage.SetKey(key, []byte("1"))
 	if err != nil {
 		t.Error(err)
 	}
 
-	value, err := storage.GetKey([]byte(key.String()))
+	value, err := storage.GetKey(key)
 	if err != nil {
 		t.Error(err)
 	}
@@ -52,12 +52,12 @@ func TestSetSame(t *testing.T) {
 		t.Errorf("%s != 1", string(value))
 	}
 
-	err = storage.SetKey([]byte(key.String()), []byte("2"))
+	err = storage.SetKey(key, []byte("2"))
 	if err != nil {
 		t.Error(err)
 	}
 
-	value, err = storage.GetKey([]byte(key.String()))
+	value, err = storage.GetKey(key)
 	if err != nil {
 		t.Error(err)
 	}
@@ -71,9 +71,9 @@ func TestGetOnly(t *testing.T) {
 	storage := storage.NewStorage()
 	go storage.Serve()
 
-	key := types.NewTransactionID()
+	key := types.NewNodeID()
 
-	_, err := storage.GetKey([]byte(key.String()))
+	_, err := storage.GetKey(key)
 	if err == nil {
 		t.Error(err)
 	}

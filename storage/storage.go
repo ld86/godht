@@ -1,19 +1,23 @@
 package storage
 
 import (
+	"errors"
 	"log"
 
 	badger "github.com/dgraph-io/badger/v2"
+	"github.com/ld86/godht/types"
+	"github.com/ld86/godht/utils"
 )
 
 type Storage struct {
-	db *badger.DB
+	db  *badger.DB
+	lru *utils.LRU
 
 	Messages chan Message
 }
 
 type SetKeyRequest struct {
-	Key   []byte
+	Key   types.NodeID
 	Value []byte
 }
 
@@ -22,10 +26,19 @@ type SetKeyResponse struct {
 }
 
 type GetKeyRequest struct {
-	Key []byte
+	Key types.NodeID
 }
 
 type GetKeyResponse struct {
+	Value []byte
+	Err   error
+}
+
+type OldestElementRequest struct {
+}
+
+type OldestElementResponse struct {
+	Key   types.NodeID
 	Value []byte
 	Err   error
 }
@@ -45,6 +58,7 @@ func NewStorage() *Storage {
 
 	return &Storage{
 		db:       db,
+		lru:      utils.NewLRU(),
 		Messages: make(chan Message),
 	}
 }
@@ -62,12 +76,14 @@ func (storage *Storage) handleMessages() {
 				storage.handleSetKey(message)
 			case "GetKey":
 				storage.handleGetKey(message)
+			case "OldestElement":
+				storage.handleOldestElement(message)
 			}
 		}
 	}
 }
 
-func (storage *Storage) SetKey(key []byte, value []byte) error {
+func (storage *Storage) SetKey(key types.NodeID, value []byte) error {
 	responseChan := make(chan interface{})
 	defer close(responseChan)
 
@@ -95,14 +111,17 @@ func (storage *Storage) handleSetKey(message Message) {
 	response := SetKeyResponse{
 		Err: err,
 	}
+
+	storage.lru.Store(request.Key, request.Value)
+
 	message.Response <- response
 }
 
-func (storage *Storage) innerSetKey(key []byte, value []byte) error {
+func (storage *Storage) innerSetKey(key types.NodeID, value []byte) error {
 	txn := storage.db.NewTransaction(true)
 	defer txn.Discard()
 
-	err := txn.Set(key, value)
+	err := txn.Set(key[:], value)
 	if err != nil {
 		return err
 	}
@@ -114,7 +133,7 @@ func (storage *Storage) innerSetKey(key []byte, value []byte) error {
 	return nil
 }
 
-func (storage *Storage) GetKey(key []byte) ([]byte, error) {
+func (storage *Storage) GetKey(key types.NodeID) ([]byte, error) {
 	responseChan := make(chan interface{})
 	defer close(responseChan)
 
@@ -145,11 +164,11 @@ func (storage *Storage) handleGetKey(message Message) {
 	message.Response <- response
 }
 
-func (storage *Storage) innerGetKey(key []byte) ([]byte, error) {
+func (storage *Storage) innerGetKey(key types.NodeID) ([]byte, error) {
 	txn := storage.db.NewTransaction(false)
 	defer txn.Discard()
 
-	item, err := txn.Get(key)
+	item, err := txn.Get(key[:])
 
 	if err != nil {
 		return nil, err
@@ -167,4 +186,44 @@ func (storage *Storage) innerGetKey(key []byte) ([]byte, error) {
 	}
 
 	return result, nil
+}
+
+func (storage *Storage) OldestElement() (types.NodeID, []byte, error) {
+	responseChan := make(chan interface{})
+	defer close(responseChan)
+
+	request := OldestElementRequest{}
+	message := Message{
+		Action:   "OldestElement",
+		Request:  request,
+		Response: responseChan,
+	}
+
+	storage.Messages <- message
+	response := (<-responseChan).(OldestElementResponse)
+	return response.Key, response.Value, response.Err
+}
+
+func (storage *Storage) handleOldestElement(message Message) {
+	_, ok := message.Request.(OldestElementRequest)
+	if !ok {
+		return
+	}
+	key, value, err := storage.innerOldestElement()
+	response := OldestElementResponse{
+		Key:   key,
+		Value: value,
+		Err:   err,
+	}
+	message.Response <- response
+}
+
+func (storage *Storage) innerOldestElement() (types.NodeID, []byte, error) {
+	lruElement := storage.lru.OldestElement()
+
+	if lruElement == nil {
+		return types.NodeID{}, nil, errors.New("Storage is empty")
+	}
+
+	return lruElement.Key.(types.NodeID), lruElement.Value.([]byte), nil
 }
