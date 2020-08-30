@@ -38,7 +38,7 @@ func (node *Node) FindNode(targetNodeID types.NodeID) []types.NodeID {
 		queried := 0
 		for i := 0; i < nodesAndDistances.Len() && i < k; i++ {
 			candidateID := nodesAndDistances.GetID(i)
-			fmt.Printf("%s %v\n", candidateID.String(), alreadyQueried[candidateID])
+			fmt.Printf("%s %v %v\n", candidateID.String(), alreadyQueried[candidateID], gotResponse[candidateID])
 
 			if alreadyQueried[candidateID] {
 				continue
