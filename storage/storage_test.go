@@ -87,7 +87,7 @@ func TestOldestElement(t *testing.T) {
 	keyA := types.NewNodeID()
 	keyB := types.NewNodeID()
 
-	_, _, err := storage.OldestElement()
+	_, _, _, err := storage.OldestElement()
 	if err == nil {
 		t.Error("Oldest element of empty storage should not be found")
 	}
@@ -97,7 +97,7 @@ func TestOldestElement(t *testing.T) {
 		t.Error(err)
 	}
 
-	oldestKey, oldestValue, err := storage.OldestElement()
+	oldestKey, oldestValue, _, err := storage.OldestElement()
 	if err != nil {
 		t.Error(err)
 	}
@@ -111,7 +111,7 @@ func TestOldestElement(t *testing.T) {
 		t.Error(err)
 	}
 
-	oldestKey, oldestValue, err = storage.OldestElement()
+	oldestKey, oldestValue, _, err = storage.OldestElement()
 	if err != nil {
 		t.Error(err)
 	}
@@ -125,7 +125,7 @@ func TestOldestElement(t *testing.T) {
 		t.Error(err)
 	}
 
-	oldestKey, oldestValue, err = storage.OldestElement()
+	oldestKey, oldestValue, _, err = storage.OldestElement()
 	if err != nil {
 		t.Error(err)
 	}

@@ -5,14 +5,16 @@ import (
 
 	"github.com/ld86/godht/messaging"
 	"github.com/ld86/godht/types"
-
-	"github.com/ld86/godht/utils"
 )
 
-func (node *Node) StoreValue(key []byte, value []byte) error {
-	keyID := utils.HashBytesToNodeID(key)
+func (node *Node) StoreValue(key types.NodeID, value []byte) error {
+	err := node.storage.SetKey(key, value)
 
-	nearestNodes := node.FindNode(keyID)
+	if err != nil {
+		return err
+	}
+
+	nearestNodes := node.FindNode(key)
 
 	if len(nearestNodes) == 0 {
 		return errors.New("Cannot find any nearest nodes")
@@ -22,7 +24,7 @@ func (node *Node) StoreValue(key []byte, value []byte) error {
 		message := messaging.Message{FromId: node.id,
 			ToId:    nodeID,
 			Action:  "store_value",
-			Ids:     []types.NodeID{keyID},
+			Ids:     []types.NodeID{key},
 			Payload: value,
 		}
 

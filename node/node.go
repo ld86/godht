@@ -125,6 +125,22 @@ func (node *Node) discoverNodes() {
 	}
 }
 
+func (node *Node) redistributeKeys() {
+	for {
+		time.Sleep(5 * time.Second)
+
+		oldestKey, oldestValue, oldestTime, err := node.storage.OldestElement()
+		if err != nil {
+			continue
+		}
+		if time.Now().Sub(oldestTime) < 5*time.Second {
+			continue
+		}
+
+		node.StoreValue(oldestKey, oldestValue)
+	}
+}
+
 func (node *Node) Serve() {
 	go node.messaging.Serve()
 	go node.buckets.Serve()

@@ -3,6 +3,7 @@ package storage
 import (
 	"errors"
 	"log"
+	"time"
 
 	badger "github.com/dgraph-io/badger/v2"
 	"github.com/ld86/godht/types"
@@ -40,6 +41,7 @@ type OldestElementRequest struct {
 type OldestElementResponse struct {
 	Key   types.NodeID
 	Value []byte
+	Time  time.Time
 	Err   error
 }
 
@@ -188,7 +190,7 @@ func (storage *Storage) innerGetKey(key types.NodeID) ([]byte, error) {
 	return result, nil
 }
 
-func (storage *Storage) OldestElement() (types.NodeID, []byte, error) {
+func (storage *Storage) OldestElement() (types.NodeID, []byte, time.Time, error) {
 	responseChan := make(chan interface{})
 	defer close(responseChan)
 
@@ -201,7 +203,7 @@ func (storage *Storage) OldestElement() (types.NodeID, []byte, error) {
 
 	storage.Messages <- message
 	response := (<-responseChan).(OldestElementResponse)
-	return response.Key, response.Value, response.Err
+	return response.Key, response.Value, response.Time, response.Err
 }
 
 func (storage *Storage) handleOldestElement(message Message) {
@@ -209,21 +211,22 @@ func (storage *Storage) handleOldestElement(message Message) {
 	if !ok {
 		return
 	}
-	key, value, err := storage.innerOldestElement()
+	key, value, time, err := storage.innerOldestElement()
 	response := OldestElementResponse{
 		Key:   key,
 		Value: value,
+		Time:  time,
 		Err:   err,
 	}
 	message.Response <- response
 }
 
-func (storage *Storage) innerOldestElement() (types.NodeID, []byte, error) {
+func (storage *Storage) innerOldestElement() (types.NodeID, []byte, time.Time, error) {
 	lruElement := storage.lru.OldestElement()
 
 	if lruElement == nil {
-		return types.NodeID{}, nil, errors.New("Storage is empty")
+		return types.NodeID{}, nil, time.Now(), errors.New("Storage is empty")
 	}
 
-	return lruElement.Key.(types.NodeID), lruElement.Value.([]byte), nil
+	return lruElement.Key.(types.NodeID), lruElement.Value.([]byte), lruElement.Time, nil
 }

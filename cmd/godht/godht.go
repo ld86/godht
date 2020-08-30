@@ -79,7 +79,7 @@ func executor(line string) {
 			return
 		}
 
-		key := []byte(fields[1])
+		key := utils.HashStringToNodeID(fields[1])
 		value := []byte(fields[2])
 
 		err := mainNode.StoreValue(key, value)
@@ -93,7 +93,7 @@ func executor(line string) {
 			return
 		}
 
-		key := []byte(fields[1])
+		key := utils.HashStringToNodeID(fields[1])
 
 		value := mainNode.RetrieveValue(key)
 

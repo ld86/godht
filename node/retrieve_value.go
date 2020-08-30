@@ -5,22 +5,23 @@ import (
 	"log"
 	"time"
 
-	"github.com/ld86/godht/utils"
-
 	"github.com/ld86/godht/buckets"
 	"github.com/ld86/godht/messaging"
 	"github.com/ld86/godht/types"
 )
 
-func (node *Node) RetrieveValue(key []byte) []byte {
+func (node *Node) RetrieveValue(key types.NodeID) []byte {
+	localValue, err := node.storage.GetKey(key)
+	if err == nil {
+		return localValue
+	}
+
 	alpha := 3
 	k := 10
 
-	keyID := utils.HashBytesToNodeID(key)
-
-	nearestIds := node.buckets.GetNearestIds(node.id, keyID, alpha)
+	nearestIds := node.buckets.GetNearestIds(node.id, key, alpha)
 	alreadyQueried := make(map[types.NodeID]bool)
-	nodesAndDistances := buckets.NewNodesWithDistances(keyID)
+	nodesAndDistances := buckets.NewNodesWithDistances(key)
 
 	fmt.Println("From buckets")
 	for _, nearestID := range nearestIds {
@@ -58,7 +59,7 @@ func (node *Node) RetrieveValue(key []byte) []byte {
 				message := messaging.Message{FromId: node.id,
 					ToId:   candidateID,
 					Action: "retrieve_value",
-					Ids:    []types.NodeID{keyID},
+					Ids:    []types.NodeID{key},
 				}
 
 				fmt.Printf("Asking %s\n", candidateID.String())
