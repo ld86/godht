@@ -9,6 +9,7 @@ import (
 	"log"
 	math_rand "math/rand"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -102,9 +103,16 @@ func executor(line string) {
 		}
 
 	case "buckets":
-		for k, v := range mainNode.Buckets().GetSizes() {
-			fmt.Printf("%d %d\n", k, v)
+		keys := make([]int, 0)
+		sizes := mainNode.Buckets().GetSizes()
+		for k := range mainNode.Buckets().GetSizes() {
+			keys = append(keys, k)
 		}
+		sort.Ints(keys)
+		for _, k := range keys {
+			fmt.Printf("%d %d\n", k, sizes[k])
+		}
+
 	case "bucket":
 		if len(fields) < 2 {
 			return
