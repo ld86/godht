@@ -15,8 +15,10 @@ func (node *Node) FindNode(targetNodeID types.NodeID) []types.NodeID {
 	k := 10
 
 	nearestIds := node.buckets.GetNearestIds(node.id, targetNodeID, alpha)
-	alreadyQueried := make(map[types.NodeID]bool)
 	nodesAndDistances := buckets.NewNodesWithDistances(targetNodeID)
+
+	alreadyQueried := make(map[types.NodeID]bool)
+	gotResponse := make(map[types.NodeID]bool)
 
 	foundNodes := make([]types.NodeID, 0)
 
@@ -72,12 +74,14 @@ func (node *Node) FindNode(targetNodeID types.NodeID) []types.NodeID {
 		for i := 0; i < queried && t; i++ {
 			select {
 			case response := <-receivedNodeID:
+				found = true
+				gotResponse[response.FromId] = true
+
 				for _, nodeID := range response.Ids {
 					if nodeID == node.id {
 						continue
 					}
 
-					found = true
 					node.addNodeToBuckets(nodeID)
 					_, f := alreadyQueried[nodeID]
 					if !f {
@@ -97,8 +101,11 @@ func (node *Node) FindNode(targetNodeID types.NodeID) []types.NodeID {
 
 	nodesAndDistances.Sort()
 
-	for i := 0; i < nodesAndDistances.Len() && i < alpha; i++ {
-		foundNodes = append(foundNodes, nodesAndDistances.GetID(i))
+	for i := 0; i < nodesAndDistances.Len() && len(foundNodes) < alpha; i++ {
+		ID := nodesAndDistances.GetID(i)
+		if gotResponse[ID] {
+			foundNodes = append(foundNodes, ID)
+		}
 	}
 
 	return foundNodes

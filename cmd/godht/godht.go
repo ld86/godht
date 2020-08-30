@@ -130,14 +130,7 @@ func executor(line string) {
 }
 
 func completer(t prompt.Document) []prompt.Suggest {
-	return []prompt.Suggest{
-		{Text: "print"},
-		{Text: "new"},
-		{Text: "serve"},
-		{Text: "logs"},
-		{Text: "buckets"},
-		{Text: "bucket"},
-	}
+	return []prompt.Suggest{}
 }
 
 func main() {
