@@ -149,6 +149,7 @@ func (node *Node) Serve() {
 	go node.doBootstrap()
 	go node.discoverNodes()
 	go node.pingNodes()
+	go node.redistributeKeys()
 
 	node.messaging.SetReceiver(node.defaultReceiver)
 
