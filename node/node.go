@@ -88,7 +88,7 @@ func (node *Node) checkNode(nodeID types.NodeID) {
 	select {
 	case _ = <-transaction.Receiver():
 		log.Printf("Save %s in buckets\n", nodeID.String())
-		break
+		node.addNodeToBuckets(nodeID)
 	case <-time.After(3 * time.Second):
 		log.Printf("Remove %s from buckets\n", nodeID.String())
 		node.buckets.RemoveNode(node.id, nodeID)
