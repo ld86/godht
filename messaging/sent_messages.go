@@ -18,7 +18,7 @@ func (messaging *Messaging) handleSentMessages() {
 
 			if outputMessage.IpAddr == nil {
 				var ok bool
-				remoteAddrFromMap, ok := messaging.mapping.Load(outputMessage.ToId)
+				remoteAddrFromMap, ok := messaging.Mapping.Load(outputMessage.ToId)
 				if !ok {
 					log.Printf("Cannot find remote addr for node with id %s, skipping message", outputMessage.ToId)
 					continue
@@ -37,7 +37,7 @@ func (messaging *Messaging) handleSentMessages() {
 
 			outputMessage.IdToAddrMapping = make([]IdAddr, 0)
 			for _, nodeID := range outputMessage.Ids {
-				nodeAddrFromMap, ok := messaging.mapping.Load(nodeID)
+				nodeAddrFromMap, ok := messaging.Mapping.Load(nodeID)
 				if !ok {
 					continue
 				}

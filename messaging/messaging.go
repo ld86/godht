@@ -30,7 +30,7 @@ type Message struct {
 type Messaging struct {
 	serverConnection net.PacketConn
 
-	mapping              *sync.Map
+	Mapping              *sync.Map
 	transactionReceivers *sync.Map
 
 	receiver       chan Message
@@ -40,7 +40,7 @@ type Messaging struct {
 func NewMessaging() *Messaging {
 	serverConnection := createPacketConn()
 	return &Messaging{serverConnection: serverConnection,
-		mapping:              &sync.Map{},
+		Mapping:              &sync.Map{},
 		transactionReceivers: &sync.Map{},
 		messagesToSend:       make(chan Message, 100),
 	}

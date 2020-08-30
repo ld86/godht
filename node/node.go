@@ -98,16 +98,11 @@ func (node *Node) checkNode(nodeID types.NodeID) {
 
 func (node *Node) pingNodes() {
 	for {
-		for i := 0; i < 160; i++ {
-			bucket := node.buckets.GetBucket(i)
-			if bucket.Len() > 0 {
+		node.messaging.Mapping.Range(func(k, _ interface{}) bool {
+			go node.checkNode(k.(types.NodeID))
+			return true
+		})
 
-				for it := bucket.Front(); it != nil; it = it.Next() {
-					remoteID := it.Value.(types.NodeID)
-					go node.checkNode(remoteID)
-				}
-			}
-		}
 		time.Sleep(5 * time.Second)
 	}
 }
