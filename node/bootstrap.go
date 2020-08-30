@@ -30,15 +30,8 @@ func (node *Node) doBootstrap() {
 		select {
 		case response := <-transactionReceiver:
 			node.addNodeToBuckets(response.FromId)
-			for _, nodeID := range response.Ids {
-				if nodeID == node.id {
-					continue
-				}
+			for _, nodeID := range node.FindNode(node.id) {
 				node.addNodeToBuckets(nodeID)
-			}
-
-			for _, nodeID2 := range node.FindNode(node.id) {
-				node.addNodeToBuckets(nodeID2)
 			}
 
 		case <-time.After(3 * time.Second):
